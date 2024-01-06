@@ -1,0 +1,45 @@
+---
+version: "3.8"
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "100k"
+    max-file: "5"
+
+services:
+  nginx:
+    logging: *logging
+    image: nginx:1.25.3-bookworm
+    volumes:
+      - "./nginx.conf:/etc/nginx/nginx.conf"
+      - "../../output:/var/www/output"
+    ports:
+      - "8080:8080"
+    networks:
+      - vidi
+
+  minio:
+    logging: *logging
+    image: quay.io/minio/minio:RELEASE.2024-01-01T16-36-33Z
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+
+volumes:
+  minio-data: {}
+
+networks:
+  vidi:
+    name: vidi-net
+    driver: bridge
