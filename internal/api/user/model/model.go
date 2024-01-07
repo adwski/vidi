@@ -2,13 +2,19 @@ package model
 
 import "errors"
 
+const (
+	MinPasswordLen = 8
+	MaxPasswordLen = 50
+)
+
 var (
-	ErrNotFound      = errors.New("user not found")
-	ErrAlreadyExists = errors.New("user with this name already exists")
+	ErrNotFound         = errors.New("user not found")
+	ErrAlreadyExists    = errors.New("user with this name already exists")
+	ErrUIDAlreadyExists = errors.New("user with this uid already exists")
 )
 
 type User struct {
-	ID       string `json:"id"`
+	UID      string `json:"id"`
 	Name     string `json:"name"`
 	Password string `json:"password,omitempty"`
 }
@@ -18,9 +24,9 @@ type UserRequest struct {
 	Password string `json:"password"`
 }
 
-func NewUserFromRequest(id string, req *UserRequest) *User {
+func NewUserFromRequest(uid string, req *UserRequest) *User {
 	return &User{
-		ID:       id,
+		UID:      uid,
 		Name:     req.Username,
 		Password: req.Password,
 	}

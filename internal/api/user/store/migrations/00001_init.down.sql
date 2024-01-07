@@ -1,0 +1,8 @@
+BEGIN TRANSACTION;
+
+DROP INDEX users_ts;
+DROP INDEX users_name;
+
+DROP TABLE users;
+
+COMMIT;

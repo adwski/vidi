@@ -18,7 +18,7 @@ import (
 
 type Store interface {
 	Create(ctx context.Context, u *model.User) error
-	Authorize(ctx context.Context, u *model.User) error
+	Get(ctx context.Context, u *model.User) error
 }
 
 type Service struct {
@@ -93,7 +93,7 @@ func (svc *Service) login(c echo.Context) error {
 		})
 	}
 
-	err := svc.s.Authorize(c.Request().Context(), model.NewUserFromRequest("", &req))
+	err := svc.s.Get(c.Request().Context(), model.NewUserFromRequest("", &req))
 	if err == nil {
 		// TODO set jwt cookie
 		return c.JSON(http.StatusInternalServerError, &common.Response{

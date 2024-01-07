@@ -30,7 +30,7 @@ type Processor struct {
 
 func NewProcessor(logger *zap.Logger, store MediaStore) *Processor {
 	return &Processor{
-		logger: logger,
+		logger: logger.With(zap.String("component", "processor")),
 		s:      store,
 	}
 }

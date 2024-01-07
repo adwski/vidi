@@ -23,7 +23,7 @@ type Store struct {
 
 func NewStore(logger *zap.Logger, prefix string) *Store {
 	return &Store{
-		logger:     logger,
+		logger:     logger.With(zap.String("component", "s3")),
 		pathPrefix: prefix,
 		files:      make(map[string]*os.File),
 	}

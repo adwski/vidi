@@ -35,7 +35,7 @@ func NewServer(cfg *Config) (*Server, error) {
 	}
 
 	return &Server{
-		logger: cfg.Logger,
+		logger: cfg.Logger.With(zap.String("component", "server")),
 		srv: &http.Server{
 			Addr:              cfg.ListenAddress,
 			Handler:           cfg.Handler,
