@@ -1,4 +1,4 @@
-// At the moment this is just for testing
+// At the moment this is just for testing.
 package main
 
 import (

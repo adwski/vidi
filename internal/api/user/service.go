@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/adwski/vidi/internal/api/middleware"
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/model"
@@ -42,6 +44,7 @@ func NewService(cfg *ServiceConfig) *Service {
 		idGen:          generators.NewID(),
 		watchURLPrefix: strings.TrimRight(cfg.WatchURLPrefix, "/"),
 	}
+	e.Validator = &RequestValidator{validator: validator.New()}
 	e.POST(apiPrefix+"register", svc.register)
 	e.POST(apiPrefix+"login", svc.login)
 
@@ -50,22 +53,21 @@ func NewService(cfg *ServiceConfig) *Service {
 }
 
 func (svc *Service) register(c echo.Context) error {
-	var req model.UserRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, common.Response{
-			Error: "invalid auth params",
+	req, err := userRequestOrError(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, &common.Response{
+			Error: err.Error(),
 		})
 	}
-	id, err := svc.idGen.Get()
-	if err != nil {
-		svc.logger.Error("cannot generate user id", zap.Error(err))
+	id, errID := svc.idGen.Get()
+	if errID != nil {
+		svc.logger.Error("cannot generate user uid", zap.Error(errID))
 		return c.JSON(http.StatusInternalServerError, &common.Response{
 			Error: common.InternalError,
 		})
 	}
 
-	err = svc.s.Create(c.Request().Context(), model.NewUserFromRequest(id, &req))
-	if err == nil {
+	if err = svc.s.Create(c.Request().Context(), model.NewUserFromRequest(id, req)); err == nil {
 		// TODO set jwt cookie
 		return c.JSON(http.StatusInternalServerError, &common.Response{
 			Message: "registration complete",
@@ -85,15 +87,25 @@ func (svc *Service) register(c echo.Context) error {
 	}
 }
 
-func (svc *Service) login(c echo.Context) error {
+func userRequestOrError(c echo.Context) (*model.UserRequest, error) {
 	var req model.UserRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, common.Response{
-			Error: "invalid auth params",
+		return nil, errors.New("invalid params")
+	}
+	if err := c.Validate(req); err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (svc *Service) login(c echo.Context) error {
+	req, err := userRequestOrError(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, &common.Response{
+			Error: err.Error(),
 		})
 	}
-
-	err := svc.s.Get(c.Request().Context(), model.NewUserFromRequest("", &req))
+	err = svc.s.Get(c.Request().Context(), model.NewUserFromRequest("", req))
 	if err == nil {
 		// TODO set jwt cookie
 		return c.JSON(http.StatusInternalServerError, &common.Response{

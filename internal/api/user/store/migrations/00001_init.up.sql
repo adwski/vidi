@@ -3,7 +3,7 @@ BEGIN TRANSACTION;
 CREATE TABLE users (
                       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                       uid  VARCHAR(50) NOT NULL,
-                      name VARCHAR(100) NOT NULL,
+                      name VARCHAR(50) NOT NULL,
                       hash VARCHAR(100) NOT NULL,
                       ts timestamp default current_timestamp,
                       CONSTRAINT uid_not_empty CHECK (uid != ''),

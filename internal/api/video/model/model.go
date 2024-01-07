@@ -47,7 +47,7 @@ func NewVideo(id string, u *user.User) *Video {
 	return &Video{
 		CreatedAt: time.Now(),
 		ID:        id,
-		UserID:    u.ID,
+		UserID:    u.UID,
 		Status:    VideoStatusCreated,
 	}
 }

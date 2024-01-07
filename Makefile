@@ -12,3 +12,7 @@ docker-dev-clean:
 .PHONY: goimports
 goimports:
 	goimports -w  .
+
+.PHONY: lint
+lint:
+	golangci-lint run ./...
