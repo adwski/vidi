@@ -2,11 +2,6 @@ package model
 
 import "errors"
 
-const (
-	MinPasswordLen = 8
-	MaxPasswordLen = 50
-)
-
 var (
 	ErrNotFound         = errors.New("user not found")
 	ErrAlreadyExists    = errors.New("user with this name already exists")

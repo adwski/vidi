@@ -51,6 +51,25 @@ services:
     networks:
       - vidi
 
+  userapi:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/userapi.Dockerfile
+      target: dev
+    environment:
+      VIDI_API_PREFIX: /api/users
+      VIDI_DATABASE_DSN: postgres://userapi:userapi@postgres:5432/userapi?sslmode=disable
+      VIDI_DATABASE_SALT: q1w2e3r4t5
+      VIDI_SERVER_ADDRESS: ":8080"
+    expose:
+      - 8080
+    networks:
+      - vidi
+    depends_on:
+      - postgres
+
 volumes:
   minio-data: {}
   vidi-db: {}

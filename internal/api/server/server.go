@@ -11,11 +11,7 @@ import (
 )
 
 const (
-	defaultReadHeaderTimeout = time.Second
-	defaultReadTimeout       = 5 * time.Second
-	defaultWriteTimeout      = 5 * time.Second
-	defaultIdleTimeout       = 10 * time.Second
-	defaultShutdownTimeout   = 10 * time.Second
+	defaultShutdownTimeout = 10 * time.Second
 )
 
 type Server struct {
@@ -24,9 +20,12 @@ type Server struct {
 }
 
 type Config struct {
-	Logger        *zap.Logger
-	Handler       http.Handler
-	ListenAddress string
+	Logger            *zap.Logger
+	ListenAddress     string
+	ReadTimeout       time.Duration
+	ReadHeaderTimeout time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
 }
 
 func NewServer(cfg *Config) (*Server, error) {
@@ -38,20 +37,30 @@ func NewServer(cfg *Config) (*Server, error) {
 		logger: cfg.Logger.With(zap.String("component", "server")),
 		srv: &http.Server{
 			Addr:              cfg.ListenAddress,
-			Handler:           cfg.Handler,
-			ReadTimeout:       defaultReadTimeout,
-			ReadHeaderTimeout: defaultReadHeaderTimeout,
-			WriteTimeout:      defaultWriteTimeout,
-			IdleTimeout:       defaultIdleTimeout,
+			ReadTimeout:       cfg.ReadTimeout,
+			ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+			WriteTimeout:      cfg.WriteTimeout,
+			IdleTimeout:       cfg.IdleTimeout,
 		},
 	}, nil
 }
 
+func (s *Server) SetHandler(h http.Handler) {
+	s.srv.Handler = h
+}
+
 func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error) {
+	defer wg.Done()
+	if s.srv.Handler == nil {
+		errc <- errors.New("server handler is not set")
+	}
+
 	errSrv := make(chan error)
 	go func() {
 		errSrv <- s.srv.ListenAndServe()
 	}()
+
+	s.logger.Info("server started", zap.String("address", s.srv.Addr))
 
 	select {
 	case <-ctx.Done():
@@ -67,5 +76,4 @@ func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error)
 			errc <- err
 		}
 	}
-	wg.Done()
 }

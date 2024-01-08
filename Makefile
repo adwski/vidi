@@ -1,7 +1,7 @@
 .PHONY: docker-dev
 docker-dev:
 	cd docker/compose ;\
-	docker compose up -d
+	docker compose up -d --build
 	docker ps
 
 .PHONY: docker-dev-clean
@@ -16,3 +16,14 @@ goimports:
 .PHONY: lint
 lint:
 	golangci-lint run ./...
+
+.PHONY: build
+build:
+	go build -gcflags "-m" -race -o ./cmd/userapi/userapi ./cmd/userapi/*.go
+
+.PHONY: statictest
+statictest:
+	go vet -vettool=$$(which statictest) ./...
+
+test-nginx:
+	docker run --rm -it --entrypoint nginx -v ./docker/compose/nginx.conf:/etc/nginx/nginx.conf nginx:1.25.3-bookworm -t
