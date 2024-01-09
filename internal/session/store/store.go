@@ -51,7 +51,10 @@ func NewStore(cfg *Config) (*Store, error) {
 }
 
 func (s *Store) Close() error {
-	return s.r.Close()
+	if err := s.r.Close(); err != nil {
+		return fmt.Errorf("error while closing redis connector: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) getFullKey(key string) string {

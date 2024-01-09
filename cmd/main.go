@@ -26,7 +26,7 @@ func main() {
 	}
 
 	outpath := "/Users/artemdvskii/go/src/github.com/adwski/vidi/output"
-	mediaStore := file.NewStore(logger, outpath)
+	mediaStore := file.NewStore(outpath)
 
 	/*
 		mediaStore, errS := s3.NewStore(&s3.StoreConfig{
