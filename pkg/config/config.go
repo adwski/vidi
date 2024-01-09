@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ViperEC is a Viper Error Catcher. It provides casting error check in addition
+// ViperEC is a Viper Error Catcher. It provides casting error checks in addition
 // to usual viper functionality.
 type ViperEC struct {
 	*viper.Viper

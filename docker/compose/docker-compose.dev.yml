@@ -10,17 +10,19 @@ x-logging: &logging
 services:
   nginx:
     logging: *logging
+    restart: unless-stopped
     image: nginx:1.25.3-bookworm
     volumes:
       - "./nginx.conf:/etc/nginx/nginx.conf:ro"
       - "../../output:/var/www/output:ro"
     ports:
-      - "8080:8080"
+      - "8080:80"
     networks:
       - vidi
 
   minio:
     logging: *logging
+    restart: unless-stopped
     image: quay.io/minio/minio:RELEASE.2024-01-01T16-36-33Z
     volumes:
       - "minio-data:/data"
@@ -30,14 +32,11 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    command:
-      - server
-      - /data
-      - --console-address
-      - ":9001"
+    command: ["server", "/data", "--console-address", ":9001"]
 
   postgres:
     logging: *logging
+    restart: unless-stopped
     image: postgres:16.1-bullseye
     environment:
       POSTGRES_DB: postgres
@@ -50,6 +49,18 @@ services:
       - "5400:5432"
     networks:
       - vidi
+
+  redis:
+    logging: *logging
+    restart: unless-stopped
+    image: redis:7.2.3-bookworm
+    volumes:
+      - "redis-data:/data"
+    ports:
+      - "6379:6379"
+    networks:
+      - vidi
+    command: ["redis-server", "--save", "60", "1"]
 
   userapi:
     logging: *logging
@@ -70,8 +81,31 @@ services:
     depends_on:
       - postgres
 
+  videoapi:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/videoapi.Dockerfile
+      target: dev
+    environment:
+      VIDI_API_PREFIX: /api/video
+      VIDI_DATABASE_DSN: postgres://videoapi:videoapi@postgres:5432/videoapi?sslmode=disable
+      VIDI_REDIS_DSN: redis://redis:6379/0
+      VIDI_MEDIA_URL_WATCH: http://localhost:8080/watch
+      VIDI_MEDIA_URL_UPLOAD: http://localhost:8080/upload
+      VIDI_SERVER_ADDRESS: ":8080"
+    expose:
+      - 8080
+    networks:
+      - vidi
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   minio-data: {}
+  redis-data: {}
   vidi-db: {}
 
 networks:

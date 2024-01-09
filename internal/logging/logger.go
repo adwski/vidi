@@ -14,34 +14,29 @@ const (
 )
 
 func GetZapLoggerWithLevel(cfgLogLvl string) (*zap.Logger, error) {
-	encoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
-		MessageKey:     "msg",
-		LevelKey:       "level",
-		TimeKey:        "time",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	})
-
 	var (
-		logLvl zapcore.Level
+		logLvl = defaultLogLevel
 		err    error
 	)
 	if cfgLogLvl == "" {
 		err = errors.New("log level cannot be empty")
 	} else {
-		if logLvl, err = zapcore.ParseLevel(cfgLogLvl); err != nil {
-			err = fmt.Errorf("cannot parse log level: %w", err)
+		if parsedLogLvl, errP := zapcore.ParseLevel(cfgLogLvl); errP != nil {
+			err = fmt.Errorf("cannot parse log level: %w", errP)
 		} else {
-			logLvl = defaultLogLevel
+			logLvl = parsedLogLvl
 		}
 	}
-	logger := zap.New(zapcore.NewCore(encoder, os.Stdout, logLvl))
+	logger := zap.New(zapcore.NewCore(getEncoder(), os.Stdout, logLvl))
 	return logger, err
 }
 
 func GetZapLoggerDefaultLevel() *zap.Logger {
-	encoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+	return zap.New(zapcore.NewCore(getEncoder(), os.Stdout, defaultLogLevel))
+}
+
+func getEncoder() zapcore.Encoder {
+	return zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		MessageKey:     "msg",
 		LevelKey:       "level",
 		TimeKey:        "time",
@@ -49,5 +44,4 @@ func GetZapLoggerDefaultLevel() *zap.Logger {
 		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
 	})
-	return zap.New(zapcore.NewCore(encoder, os.Stdout, defaultLogLevel))
 }

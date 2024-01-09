@@ -7,124 +7,133 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/adwski/vidi/internal/api/middleware"
 	common "github.com/adwski/vidi/internal/api/model"
-	user "github.com/adwski/vidi/internal/api/user/model"
+	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/generators"
+	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
 
 type Store interface {
-	Get(ctx context.Context, id string) (*model.Video, error)
 	Create(ctx context.Context, vi *model.Video) error
-	Update(ctx context.Context, vi *model.Video) error
-	Delete(ctx context.Context, id string) error
+	Get(ctx context.Context, id string, userID string) (*model.Video, error)
+	Delete(ctx context.Context, id string, userID string) error
+
+	GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error)
+	UpdateLocation(ctx context.Context, vi *model.Video) error
+	UpdateStatus(ctx context.Context, vi *model.Video) error
 }
+
+const (
+	sessionTypeWatch  = "watch"
+	sessionTypeUpload = "upload"
+
+	uploadSessionDefaultTTL = 300 * time.Second
+	watchSessionDefaultTTL  = 300 * time.Second
+)
 
 type Service struct {
 	*echo.Echo
-	logger         *zap.Logger
-	idGen          *generators.ID
-	s              Store
-	watchURLPrefix string
+	logger          *zap.Logger
+	idGen           *generators.ID
+	auth            *auth.Auth
+	watchSessions   *sessionStore.Store
+	uploadSessions  *sessionStore.Store
+	s               Store
+	watchURLPrefix  string
+	uploadURLPrefix string
 }
 
 type ServiceConfig struct {
-	APIPrefix      string
-	WatchURLPrefix string
+	Logger          *zap.Logger
+	Store           Store
+	APIPrefix       string
+	WatchURLPrefix  string
+	UploadURLPrefix string
+	RedisDSN        string
+	AuthConfig      auth.Config
 }
 
-func NewService(cfg *ServiceConfig) *Service {
-	e := middleware.GetEchoWithDefaultMiddleware()
-	apiPrefix := fmt.Sprintf("%s/", strings.TrimRight(cfg.APIPrefix, "/"))
+func NewService(cfg *ServiceConfig) (*Service, error) {
+	var (
+		apiPrefix          = strings.TrimRight(cfg.APIPrefix, "/")
+		authenticator, err = auth.NewAuth(&cfg.AuthConfig)
+	)
+	if err != nil {
+		return nil, fmt.Errorf("cannot configure authenticator: %w", err)
+	}
+
+	rUpload, errReU := sessionStore.NewStore(&sessionStore.Config{
+		Name:     sessionTypeUpload,
+		RedisDSN: cfg.RedisDSN,
+		TTL:      uploadSessionDefaultTTL,
+	})
+	if errReU != nil {
+		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
+	}
+
+	rWatch, errReW := sessionStore.NewStore(&sessionStore.Config{
+		Name:     sessionTypeWatch,
+		RedisDSN: cfg.RedisDSN,
+		TTL:      watchSessionDefaultTTL,
+	})
+	if errReW != nil {
+		return nil, fmt.Errorf("cannot configure watch session store: %w", errReW)
+	}
 
 	svc := &Service{
-		idGen:          generators.NewID(),
-		watchURLPrefix: strings.TrimRight(cfg.WatchURLPrefix, "/"),
+		logger:          cfg.Logger,
+		uploadSessions:  rUpload,
+		watchSessions:   rWatch,
+		auth:            authenticator,
+		idGen:           generators.NewID(),
+		watchURLPrefix:  strings.TrimRight(cfg.WatchURLPrefix, "/"),
+		uploadURLPrefix: strings.TrimRight(cfg.UploadURLPrefix, "/"),
 	}
-	e.GET(apiPrefix+":id", svc.getVideo)
-	e.POST(apiPrefix, svc.createVideo)
-	e.DELETE(apiPrefix+":id", svc.deleteVideo)
-	e.POST(apiPrefix+":id/watch", svc.watchVideo)
+
+	e := middleware.GetEchoWithDefaultMiddleware()
+	// User zone
+	api := e.Group(apiPrefix) // /api/video
+	api.Use(authenticator.Middleware())
+
+	userAPI := api.Group("/user")
+	userAPI.GET("/:id", svc.getVideo)
+	userAPI.POST("/", svc.createVideo)
+	userAPI.POST("/:id/watch", svc.watchVideo)
+	userAPI.DELETE("/:id", svc.deleteVideo)
+
+	// Service zone
+	serviceAPI := api.Group("/service")
+	serviceAPI.PUT("/:id/location/:location", svc.updateVideoLocation)
+	serviceAPI.PUT("/:id/status/:status", svc.updateVideoStatus)
+	serviceAPI.GET("/search", svc.listVideos)
 
 	svc.Echo = e
-	return svc
+	return svc, nil
 }
 
-func (svc *Service) getPathURL(sessionID string) string {
-	return fmt.Sprintf("%svc/%svc", svc.watchURLPrefix, sessionID)
+func (svc *Service) Handler() http.Handler {
+	return svc.Echo
 }
 
-func (svc *Service) watchVideo(c echo.Context) error {
-	video, err := svc.s.Get(c.Request().Context(), c.Param("id"))
-	if err != nil {
-		return svc.erroredResponse(c, err)
-	}
-
-	if video.IsErrored() {
-		return c.JSON(http.StatusOK, &common.Response{
-			Error: "video cannot be watched",
-		})
-	}
-
-	if !video.IsReady() {
-		return c.JSON(http.StatusOK, &common.Response{
-			Message: "video is not ready",
-		})
-	}
-
-	// TODO Add watch session handling
-	sessionID := "xxx"
-	return c.JSON(http.StatusOK, &model.WatchResponse{
-		WatchURL: svc.getPathURL(sessionID),
-	})
+func (svc *Service) getUploadURL(sessionID string) string {
+	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sessionID)
 }
 
-func (svc *Service) deleteVideo(c echo.Context) error {
-	err := svc.s.Delete(c.Request().Context(), c.Param("id"))
+func (svc *Service) getWatchURL(sessionID string) string {
+	return fmt.Sprintf("%s/%s", svc.watchURLPrefix, sessionID)
+}
+
+func (svc *Service) commonResponse(c echo.Context, err error) error {
 	if err == nil {
 		return c.JSON(http.StatusOK, &common.Response{
 			Message: "ok",
 		})
-	}
-	return svc.erroredResponse(c, err)
-}
-
-func (svc *Service) createVideo(c echo.Context) error {
-	newID, err := svc.idGen.Get()
-	if err != nil {
-		svc.logger.Error("cannot generate new video id", zap.Error(err))
-		return c.JSON(http.StatusNotFound, &common.Response{
-			Error: common.InternalError,
-		})
-	}
-
-	newVideo := model.NewVideo(newID, &user.User{}) // TODO add user session handling
-	err = svc.s.Create(c.Request().Context(), newVideo)
-
-	url := "" // TODO add upload session handling
-
-	if err == nil {
-		return c.JSON(http.StatusOK, newVideo.UploadResponse(url))
-	}
-	switch {
-	case errors.Is(err, model.ErrAlreadyExists):
-		svc.logger.Error("video with generated id already exists")
-	default:
-		svc.logger.Error("cannot create video in storage", zap.Error(err))
-	}
-	return c.JSON(http.StatusInternalServerError, &common.Response{
-		Error: common.InternalError,
-	})
-}
-
-func (svc *Service) getVideo(c echo.Context) error {
-	video, err := svc.s.Get(c.Request().Context(), c.Param("id"))
-	if err == nil {
-		return c.JSON(http.StatusOK, video.Response())
 	}
 	return svc.erroredResponse(c, err)
 }

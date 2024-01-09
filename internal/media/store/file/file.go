@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -16,16 +14,12 @@ const (
 )
 
 type Store struct {
-	logger     *zap.Logger
-	files      map[string]*os.File
 	pathPrefix string
 }
 
-func NewStore(logger *zap.Logger, prefix string) *Store {
+func NewStore(prefix string) *Store {
 	return &Store{
-		logger:     logger.With(zap.String("component", "s3")),
 		pathPrefix: prefix,
-		files:      make(map[string]*os.File),
 	}
 }
 
@@ -45,14 +39,9 @@ func (s *Store) Put(_ context.Context, name string, r io.Reader, size int64) err
 	if errW != nil {
 		return fmt.Errorf("error writing to file: %w", errW)
 	}
-
 	if n != size {
 		return fmt.Errorf("wrote incorrect amount of bytes: expected: %d, actual: %d", size, n)
 	}
-
-	s.logger.Debug("file stored",
-		zap.String("path", fullName),
-		zap.Int64("size", size))
 	return nil
 }
 

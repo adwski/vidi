@@ -1,7 +1,7 @@
 .PHONY: docker-dev
 docker-dev:
 	cd docker/compose ;\
-	docker compose up -d --build
+	docker compose up -d
 	docker ps
 
 .PHONY: docker-dev-clean

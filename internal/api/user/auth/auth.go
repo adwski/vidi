@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -15,6 +16,10 @@ const (
 	minSecretLen = 8
 
 	jwtCookieName = "vidiSessID"
+
+	SessionContextKey = "vUser"
+
+	RoleNameService = "service"
 )
 
 type Auth struct {
@@ -46,8 +51,9 @@ func NewAuth(cfg *Config) (*Auth, error) {
 }
 
 type Claims struct {
-	UID  string `json:"uid"`
-	Name string `json:"name"`
+	UserID string `json:"uid"`
+	Name   string `json:"name"`
+	Role   string `json:"role,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -57,8 +63,8 @@ func (a *Auth) expirationTime() time.Time {
 
 func (a *Auth) NewTokenForUser(user *model.User) (string, error) {
 	claims := &Claims{
-		UID:  user.UID,
-		Name: user.Name,
+		UserID: user.ID,
+		Name:   user.Name,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(a.expirationTime()),
 		},
@@ -74,13 +80,26 @@ func (a *Auth) NewTokenForUser(user *model.User) (string, error) {
 func (a *Auth) Middleware() echo.MiddlewareFunc {
 	return echojwt.WithConfig(echojwt.Config{
 		ContinueOnIgnoredError: false,
+		ContextKey:             SessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "cookie:jwtCookieName",
+		TokenLookup:            "cookie:" + jwtCookieName,
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(Claims)
 		},
 	})
+}
+
+func GetClaimFromContext(c echo.Context) (*Claims, error) {
+	token, ok := c.Get(SessionContextKey).(*jwt.Token)
+	if !ok || token == nil {
+		return nil, errors.New("cannot get jwt token from session context")
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok || claims == nil {
+		return nil, errors.New("cannot get claims from jwt token")
+	}
+	return claims, nil
 }
 
 func (a *Auth) CookieForUser(user *model.User) (*http.Cookie, error) {

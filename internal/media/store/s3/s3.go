@@ -63,6 +63,15 @@ func (ms *Store) Get(ctx context.Context, name string) ([]byte, error) {
 	return b, nil
 }
 
+func (ms *Store) GetRC(ctx context.Context, name string) (io.ReadCloser, error) {
+	fullName := ms.getFullObjectName(name)
+	obj, err := ms.client.GetObject(ctx, ms.bucket, fullName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve object from s3: %w", err)
+	}
+	return obj, nil
+}
+
 func (ms *Store) getFullObjectName(name string) string {
 	return fmt.Sprintf("%s%s", ms.pathPrefix, name)
 }

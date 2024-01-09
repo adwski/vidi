@@ -9,7 +9,7 @@ var (
 )
 
 type User struct {
-	UID      string `json:"id"`
+	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Password string `json:"password,omitempty"`
 }
@@ -21,7 +21,7 @@ type UserRequest struct {
 
 func NewUserFromRequest(uid string, req *UserRequest) *User {
 	return &User{
-		UID:      uid,
+		ID:       uid,
 		Name:     req.Username,
 		Password: req.Password,
 	}

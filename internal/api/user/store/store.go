@@ -20,7 +20,7 @@ const (
 
 	bcryptCost = 10
 
-	constrainUID      = "users_uid_key"
+	constrainUID      = "users_id_key"
 	constrainUsername = "users_name_key"
 )
 
@@ -62,8 +62,8 @@ func (s *Store) Get(ctx context.Context, u *model.User) error {
 	if err != nil {
 		return err
 	}
-	query := `select uid from users where name = $1 and hash = $2`
-	if err = s.Pool().QueryRow(ctx, query, u.Name, hash).Scan(&u.UID); err != nil {
+	query := `select id from users where name = $1 and hash = $2`
+	if err = s.Pool().QueryRow(ctx, query, u.Name, hash).Scan(&u.ID); err != nil {
 		return handleDBErr(err)
 	}
 	return nil
@@ -74,8 +74,8 @@ func (s *Store) Create(ctx context.Context, u *model.User) error {
 	if err != nil {
 		return err
 	}
-	query := `insert into users (uid, name, hash) values ($1, $2, $3)`
-	tag, errDB := s.Pool().Exec(ctx, query, u.UID, u.Name, hash)
+	query := `insert into users (id, name, hash) values ($1, $2, $3)`
+	tag, errDB := s.Pool().Exec(ctx, query, u.ID, u.Name, hash)
 	if errDB == nil {
 		if tag.RowsAffected() != 1 {
 			return fmt.Errorf("affected rows: %d, expected: 1", tag.RowsAffected())

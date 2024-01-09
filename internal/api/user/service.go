@@ -43,8 +43,10 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 		return nil, fmt.Errorf("cannot configure authenticator: %w", err)
 	}
 
-	e := middleware.GetEchoWithDefaultMiddleware()
-	apiPrefix := fmt.Sprintf("%s/", strings.TrimRight(cfg.APIPrefix, "/"))
+	var (
+		e         = middleware.GetEchoWithDefaultMiddleware()
+		apiPrefix = strings.TrimRight(cfg.APIPrefix, "/")
+	)
 
 	svc := &Service{
 		s:      cfg.Store,
@@ -52,10 +54,12 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 		auth:   authenticator,
 		idGen:  generators.NewID(),
 	}
-	e.Validator = NewRequestValidator(cfg.Logger)
-	e.POST(apiPrefix+"register", svc.register)
-	e.POST(apiPrefix+"login", svc.login)
 
+	api := e.Group(apiPrefix)
+	api.POST("/register", svc.register)
+	api.POST("/login", svc.login)
+
+	e.Validator = NewRequestValidator(cfg.Logger)
 	svc.Echo = e
 	return svc, nil
 }
