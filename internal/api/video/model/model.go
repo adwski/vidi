@@ -18,6 +18,11 @@ type Video struct {
 	Status    Status    `json:"status"`
 }
 
+type VideoUpdateRequest struct {
+	Status   string `json:"status"`
+	Location string `json:"location"`
+}
+
 type VideoResponse struct {
 	ID        string `json:"id"`
 	Status    string `json:"status"`

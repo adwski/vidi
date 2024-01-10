@@ -83,7 +83,7 @@ func (a *Auth) Middleware() echo.MiddlewareFunc {
 		ContextKey:             SessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "cookie:" + jwtCookieName,
+		TokenLookup:            "cookie:" + jwtCookieName + ",header:Authorization:Bearer",
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(Claims)
 		},

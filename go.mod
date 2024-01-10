@@ -7,6 +7,7 @@ require (
 	github.com/Eyevinn/mp4ff v0.40.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/go-playground/validator/v10 v10.16.0
+	github.com/go-resty/resty/v2 v2.11.0
 	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/golang-migrate/migrate/v4 v4.17.0
@@ -19,11 +20,13 @@ require (
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.18.2
+	github.com/valyala/fasthttp v1.51.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.17.0
 )
 
 require (
+	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

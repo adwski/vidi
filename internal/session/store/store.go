@@ -87,6 +87,7 @@ func (s *Store) Get(ctx context.Context, key string) (*session.Session, error) {
 
 func (s *Store) Delete(ctx context.Context, key string) error {
 	if err := s.r.Del(ctx, s.getFullKey(key)).Err(); err != nil {
+		// TODO Check what happen if we delete expired key
 		return fmt.Errorf("cannot delete session: %w", err)
 	}
 	return nil

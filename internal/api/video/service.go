@@ -25,6 +25,7 @@ type Store interface {
 	Delete(ctx context.Context, id string, userID string) error
 
 	GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error)
+	Update(ctx context.Context, vi *model.Video) error
 	UpdateLocation(ctx context.Context, vi *model.Video) error
 	UpdateStatus(ctx context.Context, vi *model.Video) error
 }
@@ -111,6 +112,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	serviceAPI := api.Group("/service")
 	serviceAPI.PUT("/:id/location/:location", svc.updateVideoLocation)
 	serviceAPI.PUT("/:id/status/:status", svc.updateVideoStatus)
+	serviceAPI.PUT("/:id", svc.updateVideo)
 	serviceAPI.GET("/search", svc.listVideos)
 
 	svc.Echo = e

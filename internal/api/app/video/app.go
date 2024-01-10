@@ -4,10 +4,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/adwski/vidi/internal/api/app"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video"
 	"github.com/adwski/vidi/internal/api/video/store"
-	"github.com/adwski/vidi/internal/app"
 	"go.uber.org/zap"
 )
 

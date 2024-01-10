@@ -101,6 +101,12 @@ func (s *Store) UpdateStatus(ctx context.Context, vi *model.Video) error {
 	return handleTagOneRowAndErr(&tag, err)
 }
 
+func (s *Store) Update(ctx context.Context, vi *model.Video) error {
+	query := `update videos set status = $2, location = $3 where id = $1`
+	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.Status, vi.Location)
+	return handleTagOneRowAndErr(&tag, err)
+}
+
 func handleTagOneRowAndErr(tag *pgconn.CommandTag, err error) error {
 	if err == nil {
 		if tag.RowsAffected() != 1 {

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/adwski/vidi/internal/app/user"
+	"github.com/adwski/vidi/internal/api/app/user"
 )
 
 func main() {

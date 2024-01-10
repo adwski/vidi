@@ -2,6 +2,8 @@
 package video
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 
 	common "github.com/adwski/vidi/internal/api/model"
@@ -62,6 +64,39 @@ func (svc *Service) updateVideoStatus(c echo.Context) error {
 		Status: status,
 	})
 	return svc.commonResponse(c, err)
+}
+
+func (svc *Service) updateVideo(c echo.Context) error {
+	if err := svc.getServiceSession(c); err != nil {
+		return err
+	}
+	vi, err := getVideoFromUpdateRequest(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, &common.Response{
+			Error: err.Error(),
+		})
+	}
+	err = svc.s.Update(c.Request().Context(), vi)
+	return svc.commonResponse(c, err)
+}
+
+func getVideoFromUpdateRequest(c echo.Context) (*model.Video, error) {
+	var req model.VideoUpdateRequest
+	if err := c.Bind(&req); err != nil {
+		return nil, errors.New("invalid params")
+	}
+	status, err := model.GetStatusFromName(req.Status)
+	if err != nil {
+		return nil, fmt.Errorf("invalid status: %w", err)
+	}
+	if len(req.Location) == 0 {
+		return nil, errors.New("empty location")
+	}
+	return &model.Video{
+		ID:       c.Param("id"),
+		Location: req.Location,
+		Status:   status,
+	}, nil
 }
 
 func (svc *Service) listVideos(c echo.Context) error {

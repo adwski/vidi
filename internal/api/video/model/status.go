@@ -20,7 +20,9 @@ const (
 
 type Status int
 
-var StatusNames = map[Status]string{
+var GetStatusName = func(s Status) string { return statusNames[s] }
+
+var statusNames = map[Status]string{
 	VideoStatusError:      "error",
 	VideoStatusCreated:    "created",
 	VideoStatusUploading:  "uploading",
@@ -29,23 +31,23 @@ var StatusNames = map[Status]string{
 	VideoStatusReady:      "ready",
 }
 
-var StatusFromName = make(map[string]Status)
+var statusFromName = make(map[string]Status)
 
 func init() {
-	for k, v := range StatusNames {
-		StatusFromName[v] = k
+	for k, v := range statusNames {
+		statusFromName[v] = k
 	}
 }
 
 func GetStatusFromName(name string) (Status, error) {
-	if status, ok := StatusFromName[name]; ok {
+	if status, ok := statusFromName[name]; ok {
 		return status, nil
 	}
 	return 0, errors.New("incorrect status name")
 }
 
 func (s *Status) String() string {
-	return StatusNames[*s]
+	return statusNames[*s]
 }
 
 func (s *Status) UnmarshalJSON(b []byte) (err error) {
@@ -62,7 +64,7 @@ func (s *Status) UnmarshalJSON(b []byte) (err error) {
 			err = fmt.Errorf("unknown status num: %d", value)
 		}
 	default:
-		err = errors.New("invalid duration")
+		err = errors.New("invalid status")
 	}
 	return
 }
