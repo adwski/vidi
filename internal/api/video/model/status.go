@@ -20,8 +20,6 @@ const (
 
 type Status int
 
-var GetStatusName = func(s Status) string { return statusNames[s] }
-
 var statusNames = map[Status]string{
 	VideoStatusError:      "error",
 	VideoStatusCreated:    "created",

@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/adwski/vidi/internal/api/server"
 	"github.com/adwski/vidi/internal/logging"
 	"github.com/adwski/vidi/pkg/config"
 	"github.com/spf13/viper"
@@ -29,6 +27,10 @@ const (
 	defaultJWTExpiration = 12 * time.Hour
 )
 
+type Runner interface {
+	Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error)
+}
+
 type Closer interface {
 	Close()
 }
@@ -37,15 +39,14 @@ type App struct {
 	defaultLogger *zap.Logger
 	logger        *zap.Logger
 	viper         *config.ViperEC
-	srv           *server.Server
-	svcInitFunc   func(ctx context.Context) (http.Handler, Closer, bool)
+	initializer   func(ctx context.Context) (Runner, Closer, bool)
 }
 
-func New(initFunc func(ctx context.Context) (http.Handler, Closer, bool)) *App {
+func New(initializer func(ctx context.Context) (Runner, Closer, bool)) *App {
 	return &App{
 		defaultLogger: logging.GetZapLoggerDefaultLevel(),
 		viper:         config.NewViperEC(),
-		svcInitFunc:   initFunc,
+		initializer:   initializer,
 	}
 }
 
@@ -76,19 +77,17 @@ func (app *App) run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// Configure user api service
-	handler, closer, ok := app.svcInitFunc(ctx)
+	runner, closer, ok := app.initializer(ctx)
 	if !ok {
 		return 1
 	}
-	app.srv.SetHandler(handler)
 
 	var (
 		wg   = &sync.WaitGroup{}
 		errc = make(chan error)
 	)
 	wg.Add(1)
-	go app.srv.Run(ctx, wg, errc)
+	go runner.Run(ctx, wg, errc)
 
 	select {
 	case <-ctx.Done():
@@ -97,7 +96,9 @@ func (app *App) run() int {
 		cancel()
 	}
 	wg.Wait()
-	closer.Close()
+	if closer != nil {
+		closer.Close()
+	}
 	return 0
 }
 
@@ -114,27 +115,6 @@ func (app *App) configure() int {
 	app.logger, err = logging.GetZapLoggerWithLevel(app.viper.GetString("log.level"))
 	if err != nil {
 		app.defaultLogger.Error("could not parse log level", zap.Error(err))
-		return 1
-	}
-
-	// Configure server
-	srvCfg := &server.Config{
-		Logger:            app.logger,
-		ListenAddress:     app.viper.GetString("server.address"),
-		ReadTimeout:       app.viper.GetDuration("server.timeouts.read"),
-		ReadHeaderTimeout: app.viper.GetDuration("server.timeouts.readHeader"),
-		WriteTimeout:      app.viper.GetDuration("server.timeouts.write"),
-		IdleTimeout:       app.viper.GetDuration("server.timeouts.idle"),
-	}
-	if app.viper.HasErrors() {
-		for param, errP := range app.viper.Errors() {
-			app.logger.Error("server param error", zap.String("param", param), zap.Error(errP))
-		}
-		return 1
-	}
-	app.srv, err = server.NewServer(srvCfg)
-	if err != nil {
-		app.logger.Error("could not configure server", zap.Error(err))
 		return 1
 	}
 	return 0
@@ -164,6 +144,18 @@ func (app *App) setConfigDefaults() {
 	v.SetDefault("server.timeouts.read", defaultReadTimeout)
 	v.SetDefault("server.timeouts.write", defaultWriteTimeout)
 	v.SetDefault("server.timeouts.idle", defaultIdleTimeout)
+	// Redis
+	v.SetDefault("redis.dsn", "redis://localhost:6379/0")
+	// S3
+	v.SetDefault("s3.upload.prefix", "/")
+	v.SetDefault("s3.endpoint", "minio:9000")
+	v.SetDefault("s3.bucket", "vidi")
+	v.SetDefault("s3.access_key", "access-key")
+	v.SetDefault("s3.secret_key", "secret-key")
+	v.SetDefault("s3.ssl", false)
+	// Video API Client
+	v.SetDefault("videoapi.token", "changeMe")
+	v.SetDefault("videoapi.endpoint", "http://videoapi:8080/api/video")
 	// Common
 	v.SetDefault("domain", "localhost")
 	v.SetDefault("https.enable", false)

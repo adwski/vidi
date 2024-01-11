@@ -34,7 +34,7 @@ func main() {
 			AccessKey:  "admin",
 			SecretKey:  "password",
 			Bucket:     "vidi",
-			PathPrefix: "tests/",
+			URIPathPrefix: "tests/",
 			SSL:        false,
 			Logger:     logger,
 		})

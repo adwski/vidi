@@ -11,26 +11,18 @@ import (
 )
 
 type Store struct {
-	logger     *zap.Logger
-	client     *minio.Client
-	bucket     string
-	pathPrefix string
+	logger *zap.Logger
+	client *minio.Client
+	bucket string
 }
 
 func (ms *Store) Put(ctx context.Context, name string, r io.Reader, size int64) error {
-	fullName := ms.getFullObjectName(name)
-	info, err := ms.client.PutObject(
-		ctx,
-		ms.bucket,
-		fullName,
-		r,
-		size,
-		minio.PutObjectOptions{})
+	info, err := ms.client.PutObject(ctx, ms.bucket, name, r, size, minio.PutObjectOptions{})
 	if err != nil {
 		return fmt.Errorf("cannot store object in s3: %w", err)
 	}
 	ms.logger.Debug("object stored",
-		zap.String("location", fullName),
+		zap.String("location", name),
 		zap.String("bucket", info.Bucket),
 		zap.Int64("size", info.Size))
 	return nil
@@ -41,8 +33,7 @@ func (ms *Store) PutBytes(ctx context.Context, name string, data []byte) error {
 }
 
 func (ms *Store) Get(ctx context.Context, name string) ([]byte, error) {
-	fullName := ms.getFullObjectName(name)
-	obj, err := ms.client.GetObject(ctx, ms.bucket, fullName, minio.GetObjectOptions{})
+	obj, err := ms.client.GetObject(ctx, ms.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve object from s3: %w", err)
 	}
@@ -56,22 +47,21 @@ func (ms *Store) Get(ctx context.Context, name string) ([]byte, error) {
 		return nil, fmt.Errorf("cannot read object bytes: %w", errR)
 	}
 	ms.logger.Debug("object retrieved",
-		zap.String("location", fullName),
+		zap.String("location", name),
 		zap.String("bucket", ms.bucket),
 		zap.Int64("size", stat.Size),
 		zap.Time("expiration", stat.Expiration))
 	return b, nil
 }
 
-func (ms *Store) GetRC(ctx context.Context, name string) (io.ReadCloser, error) {
-	fullName := ms.getFullObjectName(name)
-	obj, err := ms.client.GetObject(ctx, ms.bucket, fullName, minio.GetObjectOptions{})
+func (ms *Store) GetRC(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	obj, err := ms.client.GetObject(ctx, ms.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve object from s3: %w", err)
+		return nil, 0, fmt.Errorf("cannot retrieve object from s3: %w", err)
 	}
-	return obj, nil
-}
-
-func (ms *Store) getFullObjectName(name string) string {
-	return fmt.Sprintf("%s%s", ms.pathPrefix, name)
+	stat, errS := obj.Stat()
+	if errS != nil {
+		return nil, 0, fmt.Errorf("cannot get object stats: %w", errS)
+	}
+	return obj, stat.Size, nil
 }

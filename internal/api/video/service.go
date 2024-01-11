@@ -100,9 +100,9 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	e := middleware.GetEchoWithDefaultMiddleware()
 	// User zone
 	api := e.Group(apiPrefix) // /api/video
-	api.Use(authenticator.Middleware())
 
 	userAPI := api.Group("/user")
+	userAPI.Use(authenticator.MiddlewareUser())
 	userAPI.GET("/:id", svc.getVideo)
 	userAPI.POST("/", svc.createVideo)
 	userAPI.POST("/:id/watch", svc.watchVideo)
@@ -110,6 +110,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 
 	// Service zone
 	serviceAPI := api.Group("/service")
+	serviceAPI.Use(authenticator.MiddlewareService())
 	serviceAPI.PUT("/:id/location/:location", svc.updateVideoLocation)
 	serviceAPI.PUT("/:id/status/:status", svc.updateVideoStatus)
 	serviceAPI.PUT("/:id", svc.updateVideo)

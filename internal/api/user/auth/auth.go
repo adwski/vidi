@@ -77,13 +77,26 @@ func (a *Auth) NewTokenForUser(user *model.User) (string, error) {
 	return signedToken, nil
 }
 
-func (a *Auth) Middleware() echo.MiddlewareFunc {
+func (a *Auth) MiddlewareUser() echo.MiddlewareFunc {
 	return echojwt.WithConfig(echojwt.Config{
 		ContinueOnIgnoredError: false,
 		ContextKey:             SessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "cookie:" + jwtCookieName + ",header:Authorization:Bearer",
+		TokenLookup:            "cookie:" + jwtCookieName,
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return new(Claims)
+		},
+	})
+}
+
+func (a *Auth) MiddlewareService() echo.MiddlewareFunc {
+	return echojwt.WithConfig(echojwt.Config{
+		ContinueOnIgnoredError: false,
+		ContextKey:             SessionContextKey,
+		SigningKey:             a.secret,
+		SigningMethod:          echojwt.AlgorithmHS256,
+		TokenLookup:            "header:Authorization:Bearer",
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(Claims)
 		},

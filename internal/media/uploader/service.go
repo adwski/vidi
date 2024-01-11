@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -18,8 +21,9 @@ import (
 const (
 	internalError = "internal error"
 
-	defaultMediaStorePathPrefix   = "/uploads/"
 	defaultMediaStoreArtifactName = "/artifact.mp4"
+
+	uploadSessionDefaultTTL = 300 * time.Second
 )
 
 var (
@@ -39,27 +43,51 @@ type Service struct {
 
 type Config struct {
 	Logger        *zap.Logger
-	SessionStore  *sessionStore.Store
-	MediaStore    *s3.Store
-	PathPrefix    string
+	RedisDSN      string
+	URIPathPrefix string
+	S3PathPrefix  string
 	VideoAPIURL   string
 	VideoAPIToken string
+	S3Endpoint    string
+	S3AccessKey   string
+	S3SecretKey   string
+	S3Bucket      string
+	S3SSL         bool
 }
 
-func New(cfg *Config) *Service {
+func New(cfg *Config) (*Service, error) {
+	rUpload, errReU := sessionStore.NewStore(&sessionStore.Config{
+		Name:     session.KindUpload,
+		RedisDSN: cfg.RedisDSN,
+		TTL:      uploadSessionDefaultTTL,
+	})
+	if errReU != nil {
+		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
+	}
+	s3Store, errS3 := s3.NewStore(&s3.StoreConfig{
+		Logger:    cfg.Logger,
+		Endpoint:  cfg.S3Endpoint,
+		AccessKey: cfg.S3AccessKey,
+		SecretKey: cfg.S3SecretKey,
+		Bucket:    cfg.S3Bucket,
+		SSL:       false,
+	})
+	if errS3 != nil {
+		return nil, fmt.Errorf("cannot configure s3 media store: %w", errS3)
+	}
 	return &Service{
-		uriPrefixLen: len(cfg.PathPrefix),
-		s3pathPrefix: []byte(defaultMediaStorePathPrefix),
+		uriPrefixLen: len(cfg.URIPathPrefix),
+		s3pathPrefix: []byte(fmt.Sprintf("%s/", strings.TrimSuffix(cfg.S3PathPrefix, "/"))),
 		s3pathSuffix: []byte(defaultMediaStoreArtifactName),
 		logger:       cfg.Logger.With(zap.String("component", "uploader")),
-		sessS:        cfg.SessionStore,
-		mediaS:       cfg.MediaStore,
+		sessS:        rUpload,
+		mediaS:       s3Store,
 		notificator: notificator.New(&notificator.Config{
 			Logger:        cfg.Logger,
 			VideoAPIURL:   cfg.VideoAPIURL,
 			VideoAPIToken: cfg.VideoAPIToken,
 		}),
-	}
+	}, nil
 }
 
 func (svc *Service) Handler() func(*fasthttp.RequestCtx) {

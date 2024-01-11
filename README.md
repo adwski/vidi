@@ -15,7 +15,7 @@ Uploaded mp4 files are pre-processed, so they could be streamed to dash clients.
 
 Also project uses:
 - PostgreSQL for video object storage and user storage
-- S3 for video data storage
+- S3 compatible storage for video data (compose project uses minio)
 
 ## Development
 
