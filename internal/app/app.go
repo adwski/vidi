@@ -25,6 +25,9 @@ const (
 	defaultIdleTimeout       = 10 * time.Second
 
 	defaultJWTExpiration = 12 * time.Hour
+
+	defaultSegmentDuration    = 3 * time.Second
+	defaultVideoCheckInterval = 5 * time.Second
 )
 
 type Runner interface {
@@ -147,7 +150,8 @@ func (app *App) setConfigDefaults() {
 	// Redis
 	v.SetDefault("redis.dsn", "redis://localhost:6379/0")
 	// S3
-	v.SetDefault("s3.upload.prefix", "/")
+	v.SetDefault("s3.prefix.upload", "/")
+	v.SetDefault("s3.prefix.watch", "/")
 	v.SetDefault("s3.endpoint", "minio:9000")
 	v.SetDefault("s3.bucket", "vidi")
 	v.SetDefault("s3.access_key", "access-key")
@@ -167,6 +171,9 @@ func (app *App) setConfigDefaults() {
 	// DB
 	v.SetDefault("database.dsn", "postgres://postgres:postgres@localhost:5432/postgres")
 	v.SetDefault("database.salt", "changeMe")
+	// Processor
+	v.SetDefault("processor.segment_duration", defaultSegmentDuration)
+	v.SetDefault("processor.video_check_period", defaultVideoCheckInterval)
 
 	v.SetEnvPrefix(envPrefix)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

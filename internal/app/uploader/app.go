@@ -31,7 +31,7 @@ func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
 		URIPathPrefix: v.GetString("api.prefix"),
 		VideoAPIURL:   v.GetString("videoapi.endpoint"),
 		VideoAPIToken: v.GetString("videoapi.token"),
-		S3PathPrefix:  v.GetString("s3.upload.prefix"),
+		S3PathPrefix:  v.GetString("s3.prefix.upload"),
 		S3Endpoint:    v.GetString("s3.endpoint"),
 		S3AccessKey:   v.GetString("s3.access_key"),
 		S3SecretKey:   v.GetString("s3.secret_key"),

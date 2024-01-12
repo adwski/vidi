@@ -1,41 +1,36 @@
 package processor
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
-	"github.com/adwski/vidi/internal/dash"
+	"github.com/adwski/vidi/internal/mp4"
+	"github.com/adwski/vidi/internal/mp4/meta"
 )
 
-func (p *Processor) generateMPD(
-	ctx context.Context,
+func (p *Processor) constructMetadataAndGenerateMPD(
 	tracks map[uint32]*mp4ff.TrakBox,
-	location string,
 	timescale uint32,
 	totalDuration uint64,
-	segmentDuration time.Duration,
-) error {
+) ([]byte, error) {
 	var (
 		i          int
-		dashTracks = make([]dash.Track, len(tracks))
+		dashTracks = make([]meta.Track, len(tracks))
 	)
 	for _, track := range tracks {
-		mimeType, err := dash.GetMimeTypeFromMP4TrackHandlerType(track.Mdia.Hdlr.HandlerType)
+		mimeType, err := getMimeTypeFromMP4TrackHandlerType(track.Mdia.Hdlr.HandlerType)
 		if err != nil {
-			return fmt.Errorf("cannot get handler type: %w", err)
+			return nil, fmt.Errorf("cannot get handler type: %w", err)
 		}
 
-		codec, errC := dash.NewCodecFromTrackSTSD(track.Mdia.Minf.Stbl.Stsd)
+		codec, errC := meta.NewCodecFromSTSD(track.Mdia.Minf.Stbl.Stsd)
 		if errC != nil {
-			return fmt.Errorf("cannot get codec: %w", errC)
+			return nil, fmt.Errorf("cannot get codec: %w", errC)
 		}
 
-		dashTracks[i] = dash.Track{
-			Name:     segmentName(track),
+		dashTracks[i] = meta.Track{
+			Name:     mp4.SegmentName(track),
 			MimeType: mimeType,
 			Codec:    codec,
 			// TODO idk if bandwidth is mandatory for only one representation (probably not).
@@ -43,34 +38,35 @@ func (p *Processor) generateMPD(
 			//   (but not every file has Btrt box). Another way would be to statically define
 			//   bandwidth if we re-encode file to support multiple representations.
 			// Bandwidth: 0,
-			Segment: &dash.SegmentConfig{
-				Init:        segmentSuffixInit,
+			Segment: &meta.SegmentConfig{
+				Init:        mp4.SegmentSuffixInit,
 				StartNumber: 1,
 				// TODO Last segment duration most probably will not be equal to segmentDuration
 				//   Is this important? Should clients handle this on their side?
-				Duration:  uint64(segmentDuration.Seconds() * float64(timescale)),
+				Duration:  uint64(p.segmentDuration.Seconds() * float64(timescale)),
 				Timescale: timescale,
 			},
 		}
 		i++
 	}
 
-	dashCfg := &dash.MediaConfig{
+	metaCfg := &meta.Meta{
 		Duration: time.Duration(int64(totalDuration)/int64(timescale)) * time.Second,
 		Tracks:   dashTracks,
 	}
-	b, err := dashCfg.GenerateMPD()
+	b, err := metaCfg.MPD()
 	if err != nil {
-		return fmt.Errorf("cannot generate MPD: %w", err)
+		return nil, fmt.Errorf("cannot generate MPD: %w", err)
 	}
-	name := fmt.Sprintf("%s%s", location, mpdSuffix)
-	if err = p.storeBytes(ctx, name, b); err != nil {
-		return err
+	return b, nil
+}
+
+func getMimeTypeFromMP4TrackHandlerType(handlerType string) (string, error) {
+	switch handlerType {
+	case "soun":
+		return "audio/mp4", nil
+	case "vide":
+		return "video/mp4", nil
 	}
-	p.logger.Info("mpd generated successfully",
-		zap.Duration("duration", dashCfg.Duration),
-		zap.Duration("segmentDuration", segmentDuration),
-		zap.String("name", name),
-		zap.Any("tracks", dashCfg.TracksInfo()))
-	return nil
+	return "", fmt.Errorf("unknown mp4 track handler type: %s", handlerType)
 }

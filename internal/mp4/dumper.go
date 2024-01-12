@@ -5,15 +5,19 @@ import (
 	"time"
 
 	"github.com/Eyevinn/mp4ff/mp4"
-	"github.com/adwski/vidi/internal/dash"
+	"github.com/adwski/vidi/internal/mp4/meta"
 	"github.com/adwski/vidi/internal/mp4/segmentation"
 )
 
 const (
-	segmentDuration = time.Second
+	defaultSegmentDuration = time.Second
 )
 
-func Dump(path string) {
+func Dump(path string, segDuration time.Duration) {
+	segmentDuration := segDuration
+	if segDuration < defaultSegmentDuration {
+		segmentDuration = defaultSegmentDuration
+	}
 	mF, err := mp4.ReadMP4File(path)
 	if err != nil {
 		fmt.Printf("cannot open mp4 file: %v\n", err)
@@ -30,9 +34,10 @@ func Dump(path string) {
 	}
 	fmt.Printf("timescale: %d units per second\n", timescale)
 	fmt.Printf("duration: %v\n", time.Duration(totalDuration/uint64(timescale))*time.Second)
+	fmt.Println("\nsegmentation info:")
 
 	segmentPoints, errSP := segmentation.MakePoints(vTrack, timescale, segmentDuration)
-	fmt.Printf("segment points (err: %v) with %v duration: %v\n", errSP, segmentDuration, segmentPoints)
+	fmt.Printf("segment points with %v duration (err: %v): %v\n", segmentDuration, errSP, segmentPoints)
 	if errSP != nil {
 		return
 	}
@@ -43,7 +48,7 @@ func Dump(path string) {
 			track.Mdia.Hdlr.HandlerType,
 			track.Mdia.Minf.Stbl.Stts.SampleCount)
 
-		codec, errC := dash.NewCodecFromTrackSTSD(track.Mdia.Minf.Stbl.Stsd)
+		codec, errC := meta.NewCodecFromSTSD(track.Mdia.Minf.Stbl.Stsd)
 		fmt.Printf("Codec info: %v (err: %v)\n", codec, errC)
 
 		sI, errSI := segmentation.MakeIntervals(timescale, segmentPoints, track)

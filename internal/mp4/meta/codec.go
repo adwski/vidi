@@ -1,4 +1,4 @@
-package dash
+package meta
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ type Codec struct {
 	SampleRate uint16
 }
 
-// NewCodecFromTrackSTSD retrieves codec info from track's STSD box
+// NewCodecFromSTSD retrieves codec info from track's STSD box
 // in the format suited for DASH MPD schema.
-func NewCodecFromTrackSTSD(stsd *mp4.StsdBox) (*Codec, error) {
+func NewCodecFromSTSD(stsd *mp4.StsdBox) (*Codec, error) {
 	switch {
 	case stsd.AvcX != nil:
 		codecType := stsd.AvcX.Type()

@@ -1,53 +1,17 @@
-package dash
+package meta
 
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/Eyevinn/dash-mpd/mpd"
 	"github.com/Eyevinn/dash-mpd/xml"
 )
 
-// MediaConfig is a generic media file structure.
-type MediaConfig struct {
-	Tracks   []Track
-	Duration time.Duration
-}
-
-func (mc *MediaConfig) TracksInfo() []map[string]string {
-	out := make([]map[string]string, len(mc.Tracks))
-	for i, track := range mc.Tracks {
-		out[i] = map[string]string{
-			"name":  track.Name,
-			"type":  track.MimeType,
-			"codec": track.Codec.Profile,
-		}
-	}
-	return out
-}
-
-// Track is a media file video or audio track.
-type Track struct {
-	Codec     *Codec
-	Segment   *SegmentConfig
-	Name      string
-	MimeType  string
-	Bandwidth uint32
-}
-
-// SegmentConfig holds segment related info of segmented media file.
-type SegmentConfig struct {
-	Init        string
-	StartNumber uint
-	Duration    uint64
-	Timescale   uint32
-}
-
-// GenerateMPD generates media presentation description (MPD) for mp4 file.
+// MPD generates media presentation description (MPD) corresponding to its current state.
 // Based on https://github.com/Eyevinn/dash-mpd/blob/main/examples/newmpd_test.go
 // Refs: ISO/IEC 23009-1 4.3 DASH data model overview.
-func (mc *MediaConfig) GenerateMPD() ([]byte, error) {
+func (mc *Meta) MPD() ([]byte, error) {
 	// Create MPD
 	m := mpd.NewMPD(mpd.STATIC_TYPE)
 	m.Profiles = mpd.PROFILE_ONDEMAND
@@ -98,14 +62,4 @@ func (track *Track) makeAdaptationSet() *mpd.AdaptationSetType {
 	as.AppendRepresentation(rep)
 
 	return as
-}
-
-func GetMimeTypeFromMP4TrackHandlerType(handlerType string) (string, error) {
-	switch handlerType {
-	case "soun":
-		return "audio/mp4", nil
-	case "vide":
-		return "video/mp4", nil
-	}
-	return "", fmt.Errorf("unknown mp4 track handler type: %s", handlerType)
 }

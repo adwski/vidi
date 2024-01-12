@@ -1,4 +1,4 @@
-package processor
+package segmenter
 
 import (
 	"context"
@@ -6,45 +6,60 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
+	"github.com/adwski/vidi/internal/mp4"
 	"github.com/adwski/vidi/internal/mp4/segmentation"
+	"go.uber.org/zap"
 )
 
-func (p *Processor) segmentFile(
+type BoxStoreFunc func(ctx context.Context, name string, box mp4ff.BoxStructure, size uint64) error
+
+type Segmenter struct {
+	logger          *zap.Logger
+	boxStoreFunc    BoxStoreFunc
+	segmentDuration time.Duration
+}
+
+func NewSegmenter(logger *zap.Logger, segDuration time.Duration, boxStoreFunc BoxStoreFunc) *Segmenter {
+	return &Segmenter{
+		logger:          logger,
+		boxStoreFunc:    boxStoreFunc,
+		segmentDuration: segDuration,
+	}
+}
+
+func (s *Segmenter) SegmentMP4(
 	ctx context.Context,
 	mF *mp4ff.File,
-	segDuration time.Duration,
-	location string,
 ) (map[uint32]*mp4ff.TrakBox, uint32, uint64, error) {
 	track, timescale, totalDuration, err := segmentation.GetFirstVideoTrackParams(mF)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("cannot get first video track: %w", err)
 	}
-	p.logger.Debug("main video track params retrieved",
+	s.logger.Debug("main video track params retrieved",
 		zap.String("type", track.Mdia.Hdlr.HandlerType),
 		zap.Uint32("timescale", timescale),
 		zap.Uint64("totalDuration", totalDuration))
 
-	segPoints, errS := segmentation.MakePoints(track, timescale, segDuration)
+	segPoints, errS := segmentation.MakePoints(track, timescale, s.segmentDuration)
 	if errS != nil {
 		return nil, 0, 0, fmt.Errorf("cannot make segmentation points: %w", err)
 	}
-	p.logger.Debug("segmentation points calculated",
+	s.logger.Debug("segmentation points calculated",
+		zap.Duration("segmentDuration", s.segmentDuration),
 		zap.Int("count", len(segPoints)))
 
-	suitableTracks, errTr := p.getSuitableTracks(mF)
+	suitableTracks, errTr := s.getSuitableTracks(mF)
 	if errTr != nil {
 		return nil, 0, 0, fmt.Errorf("cannot find suitable tracks: %w", errTr)
 	}
-	p.logger.Info("found tracks", zap.Int("tracks", len(suitableTracks)))
+	s.logger.Info("found tracks", zap.Int("tracks", len(suitableTracks)))
 
-	segTracks, errSeg := p.makeAndWriteInitSegments(ctx, suitableTracks, location, timescale, totalDuration)
+	segTracks, errSeg := s.makeAndWriteInitSegments(ctx, suitableTracks, timescale, totalDuration)
 	if errSeg != nil {
 		return nil, 0, 0, fmt.Errorf("cannot write init segments: %w", errSeg)
 	}
-	p.logger.Debug("init segments generated",
+	s.logger.Debug("init segments generated",
 		zap.Int("segmentedTracks", len(segTracks)))
 
 	for _, tr := range suitableTracks {
@@ -52,21 +67,21 @@ func (p *Processor) segmentFile(
 		if errIn != nil {
 			return nil, 0, 0, fmt.Errorf("cannot make segment intervals: %w", err)
 		}
-		p.logger.Debug("track segments generated",
+		s.logger.Debug("track segments generated",
 			zap.String("type", tr.Mdia.Hdlr.HandlerType),
 			zap.Int("segments", len(segments)))
 
-		if err = p.makeAndWriteSegments(ctx, segments, tr, segTracks, mF.Mdat, location); err != nil {
+		if err = s.makeAndWriteSegments(ctx, segments, tr, segTracks, mF.Mdat); err != nil {
 			return nil, 0, 0, fmt.Errorf("error during segment processing: %w", err)
 		}
-		p.logger.Debug("track segments sent to storage",
+		s.logger.Debug("track segments sent to storage",
 			zap.String("type", tr.Mdia.Hdlr.HandlerType))
 	}
-	p.logger.Info("mp4 segmented successfully")
+	s.logger.Info("mp4 segmented successfully")
 	return segTracks, timescale, totalDuration, nil
 }
 
-func (p *Processor) getSuitableTracks(m *mp4ff.File) ([]*mp4ff.TrakBox, error) {
+func (s *Segmenter) getSuitableTracks(m *mp4ff.File) ([]*mp4ff.TrakBox, error) {
 	var (
 		vide      bool
 		outTracks = make([]*mp4ff.TrakBox, 0, len(m.Moov.Traks))
@@ -77,7 +92,7 @@ func (p *Processor) getSuitableTracks(m *mp4ff.File) ([]*mp4ff.TrakBox, error) {
 			vide = true
 		case "soun":
 		default:
-			p.logger.Warn("got unknown track",
+			s.logger.Warn("got unknown track",
 				zap.String("type", track.Mdia.Hdlr.HandlerType))
 			continue
 		}
@@ -91,13 +106,12 @@ func (p *Processor) getSuitableTracks(m *mp4ff.File) ([]*mp4ff.TrakBox, error) {
 	}
 	return outTracks, nil
 }
-func (p *Processor) makeAndWriteSegments(
+func (s *Segmenter) makeAndWriteSegments(
 	ctx context.Context,
 	segments []segmentation.Interval,
 	track *mp4ff.TrakBox,
 	segTracks map[uint32]*mp4ff.TrakBox,
 	mdat *mp4ff.MdatBox,
-	location string,
 ) error {
 	for i, segInterval := range segments {
 		segNum := i + 1
@@ -119,18 +133,17 @@ func (p *Processor) makeAndWriteSegments(
 		}
 
 		// Write segment
-		name := fmt.Sprintf("%s%s_%d%s", location, segmentName(segTracks[track.Tkhd.TrackID]), segNum, segmentSuffix)
-		if err = p.storeBox(ctx, name, seg, seg.Size()); err != nil {
+		name := fmt.Sprintf("%s_%d%s", mp4.SegmentName(segTracks[track.Tkhd.TrackID]), segNum, mp4.SegmentSuffix)
+		if err = s.boxStoreFunc(ctx, name, seg, seg.Size()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Processor) makeAndWriteInitSegments(
+func (s *Segmenter) makeAndWriteInitSegments(
 	ctx context.Context,
 	tracks []*mp4ff.TrakBox,
-	location string,
 	timescale uint32,
 	duration uint64,
 ) (map[uint32]*mp4ff.TrakBox, error) {
@@ -142,8 +155,8 @@ func (p *Processor) makeAndWriteInitSegments(
 		if err != nil {
 			return nil, fmt.Errorf("cannot create init track: %w", err)
 		}
-		name := fmt.Sprintf("%s%s_%s", location, segmentName(segTrack), segmentSuffixInit)
-		if err = p.storeBox(ctx, name, init, init.Size()); err != nil {
+		name := fmt.Sprintf("%s_%s", mp4.SegmentName(segTrack), mp4.SegmentSuffixInit)
+		if err = s.boxStoreFunc(ctx, name, init, init.Size()); err != nil {
 			return nil, err
 		}
 		segTracks[track.Tkhd.TrackID] = segTrack

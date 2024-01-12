@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,33 +27,24 @@ func (ms *Store) Put(ctx context.Context, name string, r io.Reader, size int64) 
 	return nil
 }
 
-func (ms *Store) PutBytes(ctx context.Context, name string, data []byte) error {
-	return ms.Put(ctx, name, bytes.NewReader(data), int64(len(data)))
-}
-
-func (ms *Store) Get(ctx context.Context, name string) ([]byte, error) {
-	obj, err := ms.client.GetObject(ctx, ms.bucket, name, minio.GetObjectOptions{})
+func (ms *Store) GetBytes(ctx context.Context, name string) ([]byte, error) {
+	rc, size, err := ms.Get(ctx, name)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve object from s3: %w", err)
+		return nil, err
 	}
-	stat, errS := obj.Stat()
-	if errS != nil {
-		return nil, fmt.Errorf("cannot get object stats: %w", errS)
-	}
-	b := make([]byte, stat.Size)
-	_, errR := obj.Read(b)
+	b := make([]byte, size)
+	_, errR := rc.Read(b)
 	if errR != nil {
 		return nil, fmt.Errorf("cannot read object bytes: %w", errR)
 	}
 	ms.logger.Debug("object retrieved",
 		zap.String("location", name),
 		zap.String("bucket", ms.bucket),
-		zap.Int64("size", stat.Size),
-		zap.Time("expiration", stat.Expiration))
+		zap.Int64("size", size))
 	return b, nil
 }
 
-func (ms *Store) GetRC(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+func (ms *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
 	obj, err := ms.client.GetObject(ctx, ms.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, 0, fmt.Errorf("cannot retrieve object from s3: %w", err)

@@ -14,17 +14,32 @@ const (
 )
 
 type Store struct {
-	pathPrefix string
+	inputPathPrefix string
+	outPathPrefix   string
 }
 
-func NewStore(prefix string) *Store {
+func NewStore(inPath, outPath string) *Store {
 	return &Store{
-		pathPrefix: prefix,
+		inputPathPrefix: inPath,
+		outPathPrefix:   outPath,
 	}
 }
 
+func (s *Store) Get(_ context.Context, name string) (io.ReadCloser, int64, error) {
+	fullName := fmt.Sprintf("%s/%s", s.inputPathPrefix, name)
+	f, err := os.Open(fullName)
+	if err != nil {
+		return nil, 0, fmt.Errorf("cannot open file: %w", err)
+	}
+	stat, errS := f.Stat()
+	if errS != nil {
+		return nil, 0, fmt.Errorf("cannot get file stats: %w", errS)
+	}
+	return f, stat.Size(), nil
+}
+
 func (s *Store) Put(_ context.Context, name string, r io.Reader, size int64) error {
-	fullName := s.getFullFileName(name)
+	fullName := fmt.Sprintf("%s/%s", s.outPathPrefix, name)
 	if errD := os.MkdirAll(fullName[:strings.LastIndexByte(fullName, '/')], defaultDirPermissions); errD != nil {
 		return fmt.Errorf("cannot create dir: %w", errD)
 	}
@@ -43,8 +58,4 @@ func (s *Store) Put(_ context.Context, name string, r io.Reader, size int64) err
 		return fmt.Errorf("wrote incorrect amount of bytes: expected: %d, actual: %d", size, n)
 	}
 	return nil
-}
-
-func (s *Store) getFullFileName(name string) string {
-	return fmt.Sprintf("%s/%s", s.pathPrefix, name)
 }

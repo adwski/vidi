@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-
 	"strings"
 	"time"
 
@@ -107,7 +106,7 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 	// Request is valid and session exists
 	// Proceed with segment handling
 	// --------------------------------------------------
-	rc, size, errS3 := svc.mediaS.GetRC(ctx, svc.getSegmentName(sess, path))
+	rc, size, errS3 := svc.mediaS.Get(ctx, svc.getSegmentName(sess, path))
 	if errS3 != nil {
 		svc.logger.Error("error while retrieving segment", zap.Error(errS3))
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)

@@ -113,10 +113,35 @@ services:
     environment:
       VIDI_API_PREFIX: /upload
       VIDI_REDIS_DSN: redis://redis:6379/0
-      VIDI_VIDEO_API_ENDPOINT: http://videoapi:8080/api/video
-      VIDI_VIDEO_API_TOKEN: token # TODO add token
+      VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
+      VIDI_VIDEOAPI_TOKEN: token # TODO add token
       VIDI_SERVER_ADDRESS: ":8080"
-      VIDI_S3_UPLOAD_PREFIX: /upload
+      VIDI_S3_PREFIX_UPLOAD: /upload
+      VIDI_S3_ENDPOINT: minio:9000
+      VIDI_S3_ACCESS_KEY: admin
+      VIDI_S3_SECRET_KEY: password
+      VIDI_S3_BUCKET: vidi
+    expose:
+      - 8080
+    networks:
+      - vidi
+    depends_on:
+      - minio
+      - redis
+      - videoapi
+
+  streamer:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/streamer.Dockerfile
+      target: dev
+    environment:
+      VIDI_API_PREFIX: /watch
+      VIDI_REDIS_DSN: redis://redis:6379/0
+      VIDI_SERVER_ADDRESS: ":8080"
+      VIDI_S3_PREFIX_WATCH: /videos
       VIDI_S3_ENDPOINT: minio:9000
       VIDI_S3_ACCESS_KEY: admin
       VIDI_S3_SECRET_KEY: password
@@ -129,29 +154,29 @@ services:
       - minio
       - redis
 
-  streamer:
+  processor:
     logging: *logging
     restart: unless-stopped
     build:
       context: ../..
-      dockerfile: docker/uploader.Dockerfile
+      dockerfile: docker/processor.Dockerfile
       target: dev
     environment:
-      VIDI_API_PREFIX: /watch
-      VIDI_REDIS_DSN: redis://redis:6379/0
-      VIDI_SERVER_ADDRESS: ":8080"
-      VIDI_S3_WATCH_PREFIX: /videos
+      VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
+      VIDI_VIDEOAPI_TOKEN: token # TODO add token
+      VIDI_S3_PREFIX_UPLOAD: /upload
+      VIDI_S3_PREFIX_WATCH: /videos
       VIDI_S3_ENDPOINT: minio:9000
       VIDI_S3_ACCESS_KEY: admin
       VIDI_S3_SECRET_KEY: password
       VIDI_S3_BUCKET: vidi
-    expose:
-      - 8080
+      VIDI_PROCESSOR_SEGMENT_DURATION: 3s
+      VIDI_PROCESSOR_VIDEO_CHECK_PERIOD: 5s
     networks:
       - vidi
     depends_on:
       - minio
-      - redis
+      - videoapi
 
 volumes:
   minio-data: {}
