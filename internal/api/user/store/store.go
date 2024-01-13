@@ -29,7 +29,8 @@ var migrations embed.FS
 
 type Store struct {
 	*store.Database
-	salt []byte
+	logger *zap.Logger
+	salt   []byte
 }
 
 type Config struct {
@@ -42,8 +43,9 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 	if len(cfg.Salt) != saltLen {
 		return nil, fmt.Errorf("salt length must be %d", saltLen)
 	}
+	logger := cfg.Logger.With(zap.String("component", "database"))
 	s, err := store.New(ctx, &store.Config{
-		Logger:        cfg.Logger,
+		Logger:        logger,
 		DSN:           cfg.DSN,
 		Migrate:       true,
 		MigrationsDir: &migrations,
@@ -53,20 +55,21 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 	}
 	return &Store{
 		Database: s,
+		logger:   logger,
 		salt:     []byte(cfg.Salt),
 	}, nil
 }
 
 func (s *Store) Get(ctx context.Context, u *model.User) error {
-	hash, err := s.hashPwd(u.Password)
-	if err != nil {
-		return err
-	}
-	query := `select id from users where name = $1 and hash = $2`
-	if err = s.Pool().QueryRow(ctx, query, u.Name, hash).Scan(&u.ID); err != nil {
+	var hash string
+	s.logger.Debug("checking user",
+		zap.String("name", u.Name),
+		zap.String("hash", hash))
+	query := `select id, hash from users where name = $1`
+	if err := s.Pool().QueryRow(ctx, query, u.Name).Scan(&u.ID, &hash); err != nil {
 		return handleDBErr(err)
 	}
-	return nil
+	return s.compare(hash, u.Password)
 }
 
 func (s *Store) Create(ctx context.Context, u *model.User) error {
@@ -74,6 +77,10 @@ func (s *Store) Create(ctx context.Context, u *model.User) error {
 	if err != nil {
 		return err
 	}
+	s.logger.Debug("creating user",
+		zap.String("name", u.Name),
+		zap.String("id", u.ID),
+		zap.String("hash", hash))
 	query := `insert into users (id, name, hash) values ($1, $2, $3)`
 	tag, errDB := s.Pool().Exec(ctx, query, u.ID, u.Name, hash)
 	if errDB == nil {
@@ -108,10 +115,20 @@ func (s *Store) salted(pwd string) []byte {
 	return append(s.salt, []byte(pwd)...)
 }
 
-func (s *Store) hashPwd(pwd string) ([]byte, error) {
+func (s *Store) hashPwd(pwd string) (string, error) {
 	b, err := bcrypt.GenerateFromPassword(s.salted(pwd), bcryptCost)
 	if err != nil {
-		return nil, fmt.Errorf("cannot hash password: %w", err)
+		return "", fmt.Errorf("cannot hash password: %w", err)
 	}
-	return b, nil
+	return string(b), nil
+}
+
+func (s *Store) compare(hash, pwd string) error {
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), s.salted(pwd)); err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return model.ErrIncorrectCredentials
+		}
+		return fmt.Errorf("cannot compare user hash: %w", err)
+	}
+	return nil
 }

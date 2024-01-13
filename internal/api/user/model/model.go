@@ -3,9 +3,10 @@ package model
 import "errors"
 
 var (
-	ErrNotFound         = errors.New("user not found")
-	ErrAlreadyExists    = errors.New("user with this name already exists")
-	ErrUIDAlreadyExists = errors.New("user with this uid already exists")
+	ErrNotFound             = errors.New("user not found")
+	ErrAlreadyExists        = errors.New("user with this name already exists")
+	ErrUIDAlreadyExists     = errors.New("user with this uid already exists")
+	ErrIncorrectCredentials = errors.New("incorrect credentials")
 )
 
 type User struct {

@@ -1,8 +1,8 @@
 BEGIN TRANSACTION;
 
-DROP INDEX users_ts;
+DROP INDEX users_id;
 DROP INDEX users_name;
-DROP INDEX created_at;
+DROP INDEX users_created_at;
 
 DROP TABLE users;
 

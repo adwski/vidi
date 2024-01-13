@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type BoxStoreFunc func(ctx context.Context, name string, box mp4ff.BoxStructure, size uint64) error
+type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) error
 
 type Segmenter struct {
 	logger          *zap.Logger

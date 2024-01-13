@@ -93,7 +93,7 @@ func (svc *Service) register(c echo.Context) error {
 			})
 		}
 		c.SetCookie(cookie)
-		return c.JSON(http.StatusInternalServerError, &common.Response{
+		return c.JSON(http.StatusOK, &common.Response{
 			Message: "registration complete",
 		})
 	}
@@ -118,10 +118,19 @@ func (svc *Service) login(c echo.Context) error {
 			Error: err.Error(),
 		})
 	}
-	err = svc.s.Get(c.Request().Context(), model.NewUserFromRequest("", req))
+
+	u := model.NewUserFromRequest("", req)
+	err = svc.s.Get(c.Request().Context(), u) // side effect: Get() will fill user ID
 	if err == nil {
-		// TODO set jwt cookie
-		return c.JSON(http.StatusInternalServerError, &common.Response{
+		cookie, errC := svc.auth.CookieForUser(u)
+		if errC != nil {
+			svc.logger.Error("cannot create auth cookie", zap.Error(errC))
+			return c.JSON(http.StatusInternalServerError, &common.Response{
+				Error: common.InternalError,
+			})
+		}
+		c.SetCookie(cookie)
+		return c.JSON(http.StatusOK, &common.Response{
 			Message: "login ok",
 		})
 	}
@@ -129,6 +138,10 @@ func (svc *Service) login(c echo.Context) error {
 	switch {
 	case errors.Is(err, model.ErrNotFound):
 		return c.JSON(http.StatusNotFound, &common.Response{
+			Error: err.Error(),
+		})
+	case errors.Is(err, model.ErrIncorrectCredentials):
+		return c.JSON(http.StatusUnauthorized, &common.Response{
 			Error: err.Error(),
 		})
 	default:
