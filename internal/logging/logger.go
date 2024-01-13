@@ -35,6 +35,17 @@ func GetZapLoggerDefaultLevel() *zap.Logger {
 	return zap.New(zapcore.NewCore(getEncoder(), os.Stdout, defaultLogLevel))
 }
 
+func GetZapLoggerConsole() *zap.Logger {
+	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+		MessageKey:     "msg",
+		LevelKey:       "level",
+		TimeKey:        "time",
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+	}), os.Stdout, defaultLogLevel))
+}
+
 func getEncoder() zapcore.Encoder {
 	return zapcore.NewJSONEncoder(zapcore.EncoderConfig{
 		MessageKey:     "msg",

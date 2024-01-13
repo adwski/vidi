@@ -13,7 +13,7 @@ import (
 
 // ProcessFileFromReader segments mp4 file provided as reader using specified segment duration
 // and writes resulting segments to segment writer.
-// It also generates MPD schema.
+// It also generates StaticMPD schema.
 func (p *Processor) ProcessFileFromReader(ctx context.Context, r io.Reader, location string) error {
 	p.logger.Info("mp4 processing started")
 	mF, err := mp4ff.DecodeFile(r)
@@ -34,7 +34,7 @@ func (p *Processor) ProcessFileFromReader(ctx context.Context, r io.Reader, loca
 
 	bMPD, errMPD := p.constructMetadataAndGenerateMPD(tracks, timescale, totalDuration)
 	if errMPD != nil {
-		return fmt.Errorf("cannot generate MPD: %w", errMPD)
+		return fmt.Errorf("cannot generate StaticMPD: %w", errMPD)
 	}
 	p.logger.Debug("mpd generated successfully")
 	if err = p.storeBytes(ctx, fmt.Sprintf("%s/%s", location, mp4.MPDSuffix), bMPD); err != nil {

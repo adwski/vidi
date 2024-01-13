@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Eyevinn/mp4ff/mp4"
+	mp4ff "github.com/Eyevinn/mp4ff/mp4"
 	"github.com/adwski/vidi/internal/mp4/meta"
 	"github.com/adwski/vidi/internal/mp4/segmentation"
 )
@@ -18,7 +18,7 @@ func Dump(path string, segDuration time.Duration) {
 	if segDuration < defaultSegmentDuration {
 		segmentDuration = defaultSegmentDuration
 	}
-	mF, err := mp4.ReadMP4File(path)
+	mF, err := mp4ff.ReadMP4File(path)
 	if err != nil {
 		fmt.Printf("cannot open mp4 file: %v\n", err)
 		return
@@ -42,6 +42,10 @@ func Dump(path string, segDuration time.Duration) {
 		return
 	}
 
+	var (
+		videoTrack bool
+		audioTrack bool
+	)
 	for _, track := range mF.Moov.Traks {
 		fmt.Printf("TrackID: %v, type: %v, sampleCount: %v\n",
 			track.Tkhd.TrackID,
@@ -50,8 +54,22 @@ func Dump(path string, segDuration time.Duration) {
 
 		codec, errC := meta.NewCodecFromSTSD(track.Mdia.Minf.Stbl.Stsd)
 		fmt.Printf("Codec info: %v (err: %v)\n", codec, errC)
+		if errC == nil {
+			switch track.Mdia.Hdlr.HandlerType {
+			case "vide":
+				videoTrack = true
+			case "soun":
+				audioTrack = true
+			}
+		}
 
 		sI, errSI := segmentation.MakeIntervals(timescale, segmentPoints, track)
 		fmt.Printf("Segment intervals (err: %v): %v\n", errSI, sI)
+	}
+
+	if videoTrack && audioTrack {
+		fmt.Println("\nCodecs are supported!")
+	} else {
+		fmt.Println("\nSome codec is not yet supported!")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -65,12 +66,13 @@ func New(cfg *Config) (*Service, error) {
 		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
 	}
 	s3Store, errS3 := s3.NewStore(&s3.StoreConfig{
-		Logger:    cfg.Logger,
-		Endpoint:  cfg.S3Endpoint,
-		AccessKey: cfg.S3AccessKey,
-		SecretKey: cfg.S3SecretKey,
-		Bucket:    cfg.S3Bucket,
-		SSL:       false,
+		Logger:       cfg.Logger,
+		Endpoint:     cfg.S3Endpoint,
+		AccessKey:    cfg.S3AccessKey,
+		SecretKey:    cfg.S3SecretKey,
+		Bucket:       cfg.S3Bucket,
+		SSL:          cfg.S3SSL,
+		CreateBucket: true,
 	})
 	if errS3 != nil {
 		return nil, fmt.Errorf("cannot configure s3 media store: %w", errS3)
@@ -143,19 +145,41 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 			svc.logger.Error("error while closing body stream", zap.Error(errC))
 		}
 	}()
-	// TODO Double check if this is true pipe style read/write and file would never be fully stored in heap.
-	//  For whole mp4 this is important
-	if err = svc.mediaS.Put(ctx, svc.getUploadArtifactName(sess), ctx.Request.BodyStream(), int64(size)); err != nil {
-		svc.logger.Error("error while uploading artifact", zap.Error(err))
+
+	var (
+		r, w            = io.Pipe()
+		done            = make(chan struct{})
+		errPut, errBody error
+	)
+	go func() {
+		if errPut = svc.mediaS.Put(ctx, svc.getUploadArtifactName(sess), r, int64(size)); errPut != nil {
+			svc.logger.Error("error while uploading artifact", zap.Error(errPut))
+		}
+		if errR := r.Close(); errR != nil {
+			svc.logger.Error("error closing pipe reader", zap.Error(errR))
+		}
+		done <- struct{}{}
+	}()
+	go func() {
+		if errBody = ctx.Request.BodyWriteTo(w); errBody != nil {
+			svc.logger.Error("error while reading body", zap.Error(errBody))
+		}
+		if errW := w.Close(); errW != nil {
+			svc.logger.Error("error closing pipe writer", zap.Error(errW))
+		}
+		done <- struct{}{}
+	}()
+	<-done
+	<-done
+	if errBody != nil || errPut != nil {
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
-
+	ctx.SetStatusCode(fasthttp.StatusNoContent)
 	// --------------------------------------------------
 	// Postprocessing phase
 	// --------------------------------------------------
 	go svc.postProcess(sess)
-	ctx.SetStatusCode(fasthttp.StatusOK)
 }
 
 func (svc *Service) postProcess(sess *session.Session) {

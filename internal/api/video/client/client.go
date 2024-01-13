@@ -32,6 +32,7 @@ type Config struct {
 func New(cfg *Config) *Client {
 	return &Client{
 		c:        resty.New(),
+		logger:   cfg.Logger.With(zap.String("component", "video-api-client")),
 		endpoint: strings.TrimSuffix(cfg.Endpoint, "/"),
 	}
 }

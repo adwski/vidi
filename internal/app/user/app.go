@@ -29,12 +29,12 @@ func (app *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 
 	storeCfg := &store.Config{
 		Logger: logger,
-		DSN:    v.GetString("database.dsn"),
+		DSN:    v.GetURL("database.dsn"),
 		Salt:   v.GetString("database.salt"),
 	}
 	svcCfg := &user.ServiceConfig{
 		Logger:    logger,
-		APIPrefix: v.GetStringAllowEmpty("api.prefix"),
+		APIPrefix: v.GetURIPrefix("api.prefix"),
 		AuthConfig: auth.Config{
 			Secret:     v.GetString("auth.jwt.secret"),
 			Expiration: v.GetDuration("auth.jwt.expiration"),

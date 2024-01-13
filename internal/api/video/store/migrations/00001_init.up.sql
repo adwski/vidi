@@ -4,7 +4,7 @@ CREATE TABLE videos (
                       id VARCHAR(50) NOT NULL PRIMARY KEY,
                       user_id VARCHAR(50) NOT NULL,
                       status smallint NOT NULL,
-                      location VARCHAR(100) NOT NULL,
+                      location VARCHAR(100) NOT NULL DEFAULT '',
                       created_at timestamptz default current_timestamp,
                       CONSTRAINT id_not_empty CHECK (id != ''),
                       CONSTRAINT user_uid_not_empty CHECK (user_id != '')

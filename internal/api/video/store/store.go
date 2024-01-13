@@ -46,8 +46,8 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 }
 
 func (s *Store) Create(ctx context.Context, vi *model.Video) error {
-	query := `insert into videos (id, user_id, status, created) values ($1, $2, $3, $4)`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.UserID, vi.Status, vi.CreatedAt)
+	query := `insert into videos (id, user_id, status, created_at) values ($1, $2, $3, $4)`
+	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt)
 	return handleTagOneRowAndErr(&tag, err)
 }
 

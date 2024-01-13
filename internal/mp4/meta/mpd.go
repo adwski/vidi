@@ -8,11 +8,11 @@ import (
 	"github.com/Eyevinn/dash-mpd/xml"
 )
 
-// MPD generates media presentation description (MPD) corresponding to its current state.
+// StaticMPD generates media presentation description (MPD) corresponding to current state of Meta.
 // Based on https://github.com/Eyevinn/dash-mpd/blob/main/examples/newmpd_test.go
 // Refs: ISO/IEC 23009-1 4.3 DASH data model overview.
-func (mc *Meta) MPD() ([]byte, error) {
-	// Create MPD
+func (mc *Meta) StaticMPD() ([]byte, error) {
+	// Create StaticMPD
 	m := mpd.NewMPD(mpd.STATIC_TYPE)
 	m.Profiles = mpd.PROFILE_ONDEMAND
 	m.MediaPresentationDuration = mpd.Ptr(mpd.Duration(mc.Duration))

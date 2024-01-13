@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"net/url"
 	"time"
 
 	"github.com/spf13/cast"
@@ -57,6 +58,41 @@ func (vec *ViperEC) GetString(key string) string {
 	}
 	if len(s) == 0 {
 		vec.errs[key] = errors.New("cannot be empty")
+	}
+	return s
+}
+
+func (vec *ViperEC) GetURL(key string) string {
+	s, err := cast.ToStringE(vec.Get(key))
+	if err != nil {
+		vec.errs[key] = err
+		return ""
+	}
+	_, err = url.Parse(s)
+	if err != nil {
+		vec.errs[key] = errors.New("is not valid url")
+		return ""
+	}
+	return s
+}
+
+func (vec *ViperEC) GetURIPrefix(key string) string {
+	s, err := cast.ToStringE(vec.Get(key))
+	if err != nil {
+		vec.errs[key] = err
+		return ""
+	}
+	if len(s) == 0 {
+		vec.errs[key] = errors.New("cannot be empty")
+		return ""
+	}
+	if s[0] != '/' {
+		vec.errs[key] = errors.New("must start with /")
+		return ""
+	}
+	if len(s) > 1 && s[len(s)-1] == '/' {
+		vec.errs[key] = errors.New("must not end with /")
+		return ""
 	}
 	return s
 }

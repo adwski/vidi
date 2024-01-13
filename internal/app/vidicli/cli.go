@@ -36,12 +36,18 @@ func Execute() int {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringP("file", "f", "", "input file")
-	rootCmd.PersistentFlags().StringP("outdir", "o", "./output", "output dir")
-	rootCmd.PersistentFlags().DurationP("segduration", "s", defaultSegmentDuration, "segment duration")
+	mp4Cmd.AddCommand(dumpCmd)
+	mp4Cmd.AddCommand(segmentCmd)
+	mp4Cmd.PersistentFlags().StringP("file", "f", "input.mp4", "input file")
+	mp4Cmd.PersistentFlags().StringP("outdir", "o", "./output", "output dir")
+	mp4Cmd.PersistentFlags().DurationP("segduration", "s", defaultSegmentDuration, "segment duration")
 
-	rootCmd.AddCommand(segmentCmd)
-	rootCmd.AddCommand(dumpCmd)
+	rootCmd.AddCommand(mp4Cmd)
+}
+
+var mp4Cmd = &cobra.Command{
+	Use:   "mp4",
+	Short: "mp4 isobmff command group",
 }
 
 var segmentCmd = &cobra.Command{
@@ -58,30 +64,33 @@ var segmentCmd = &cobra.Command{
 var dumpCmd = &cobra.Command{
 	Use:   "dump",
 	Short: "dump mp4 file",
-
 	Run: func(cmd *cobra.Command, args []string) {
 		fileName := cmd.Flag("file").Value.String()
-		segduration := cast.ToDuration(cmd.Flag("segduration").Value.String())
-		mp4.Dump(fileName, segduration)
+		segDuration := cast.ToDuration(cmd.Flag("segduration").Value.String())
+		mp4.Dump(fileName, segDuration)
 	},
 }
 
 func segmentFile(fileName, outdir string, segDuration time.Duration) {
 	var (
-		logger     = logging.GetZapLoggerDefaultLevel()
+		logger     = logging.GetZapLoggerConsole()
 		mediaStore = file.NewStore("", outdir)
-
-		proc = processor.New(&processor.Config{
+		proc       = processor.New(&processor.Config{
 			Logger:          logger,
 			Store:           mediaStore,
 			SegmentDuration: segDuration,
 		})
 	)
-	f, _ := os.Open(fileName)
+	f, err := os.Open(fileName)
+	if err != nil {
+		logger.Error("cannot open file", zap.Error(err))
+		return
+	}
 	defer func() { _ = f.Close() }()
-	err := proc.ProcessFileFromReader(context.Background(), f, "")
+	err = proc.ProcessFileFromReader(context.Background(), f, "")
 	if err != nil {
 		logger.Error("error processing file", zap.Error(err))
+		return
 	}
 	logger.Info("processing is done", zap.String("output", outdir))
 }

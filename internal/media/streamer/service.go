@@ -18,12 +18,15 @@ const (
 	internalError = "internal error"
 
 	watchSessionDefaultTTL = 300 * time.Second
+
+	contentTypeSegment = "video/iso.segment"
+	contentTypeMPD     = "application/dash+xml"
 )
 
 var (
-	contentTypeSegment = []byte("video/iso.segment")
-	contentTypeMPD     = []byte("application/dash+xml")
-	methodGET          = []byte("GET")
+	methodGET      = []byte("GET")
+	objTypeSegment = []byte(".m4s")
+	objTypeMPD     = []byte(".mpd")
 )
 
 type Service struct {
@@ -61,7 +64,7 @@ func New(cfg *Config) (*Service, error) {
 		AccessKey: cfg.S3AccessKey,
 		SecretKey: cfg.S3SecretKey,
 		Bucket:    cfg.S3Bucket,
-		SSL:       false,
+		SSL:       cfg.S3SSL,
 	})
 	if errS3 != nil {
 		return nil, fmt.Errorf("cannot configure s3 media store: %w", errS3)
@@ -112,7 +115,15 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
-	ctx.Response.Header.Set("Content-Type", string(cType))
+
+	svc.logger.Debug("serving segment",
+		zap.String("video_id", sess.VideoID),
+		zap.String("session_id", sess.ID),
+		zap.String("path", string(path)),
+		zap.Int64("size", size),
+		zap.String("type", cType))
+
+	ctx.Response.Header.Set("Content-Type", cType)
 	ctx.SetBodyStream(rc, int(size)) // reader will be closed by fasthttp
 }
 
@@ -121,28 +132,28 @@ func (svc *Service) getSegmentName(sess *session.Session, path []byte) string {
 	return string(append(append(append(b, svc.s3PathPrefix...), []byte(sess.VideoID)...), path...))
 }
 
-func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byte, []byte, error) {
+func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byte, string, error) {
 	// URI: /prefix/<session-id>/<segment>
 	if svc.uriPrefixLen >= len(uri) {
-		return "", nil, nil, errors.New("request uri is less than configured prefix")
+		return "", nil, "", errors.New("request uri is less than configured prefix")
 	}
 	sessionAndPath := uri[svc.uriPrefixLen+1:]
 	idx := bytes.IndexByte(sessionAndPath, '/')
 	if idx != -1 || idx+1 == len(sessionAndPath) {
-		return "", nil, nil, errors.New("invalid uri")
+		return "", nil, "", errors.New("invalid uri")
 	}
 	var (
 		sess  = sessionAndPath[:idx]
 		path  = sessionAndPath[idx:]
-		cType []byte
+		cType string
 	)
 	switch {
-	case bytes.HasSuffix(path, []byte(".m4s")):
+	case bytes.HasSuffix(path, objTypeSegment):
 		cType = contentTypeSegment
-	case bytes.HasSuffix(path, []byte(".mpd")):
+	case bytes.HasSuffix(path, objTypeMPD):
 		cType = contentTypeMPD
 	default:
-		return "", nil, nil, fmt.Errorf("invalid segment type")
+		return "", nil, "", fmt.Errorf("invalid segment type")
 	}
 	return string(sess), path, cType, nil
 }

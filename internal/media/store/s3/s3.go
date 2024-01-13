@@ -15,20 +15,20 @@ type Store struct {
 	bucket string
 }
 
-func (ms *Store) Put(ctx context.Context, name string, r io.Reader, size int64) error {
-	info, err := ms.client.PutObject(ctx, ms.bucket, name, r, size, minio.PutObjectOptions{})
+func (s *Store) Put(ctx context.Context, name string, r io.Reader, size int64) error {
+	info, err := s.client.PutObject(ctx, s.bucket, name, r, size, minio.PutObjectOptions{})
 	if err != nil {
 		return fmt.Errorf("cannot store object in s3: %w", err)
 	}
-	ms.logger.Debug("object stored",
+	s.logger.Debug("object stored",
 		zap.String("location", name),
 		zap.String("bucket", info.Bucket),
 		zap.Int64("size", info.Size))
 	return nil
 }
 
-func (ms *Store) GetBytes(ctx context.Context, name string) ([]byte, error) {
-	rc, size, err := ms.Get(ctx, name)
+func (s *Store) GetBytes(ctx context.Context, name string) ([]byte, error) {
+	rc, size, err := s.Get(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -37,15 +37,15 @@ func (ms *Store) GetBytes(ctx context.Context, name string) ([]byte, error) {
 	if errR != nil {
 		return nil, fmt.Errorf("cannot read object bytes: %w", errR)
 	}
-	ms.logger.Debug("object retrieved",
+	s.logger.Debug("object retrieved",
 		zap.String("location", name),
-		zap.String("bucket", ms.bucket),
+		zap.String("bucket", s.bucket),
 		zap.Int64("size", size))
 	return b, nil
 }
 
-func (ms *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
-	obj, err := ms.client.GetObject(ctx, ms.bucket, name, minio.GetObjectOptions{})
+func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, 0, fmt.Errorf("cannot retrieve object from s3: %w", err)
 	}

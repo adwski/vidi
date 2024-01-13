@@ -32,10 +32,10 @@ func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 	}
 	svcCfg := &video.ServiceConfig{
 		Logger:          logger,
-		APIPrefix:       v.GetStringAllowEmpty("api.prefix"),
-		WatchURLPrefix:  v.GetString("media.url.watch"),
-		UploadURLPrefix: v.GetString("media.url.upload"),
-		RedisDSN:        v.GetString("redis.dsn"),
+		APIPrefix:       v.GetURIPrefix("api.prefix"),
+		WatchURLPrefix:  v.GetURL("media.url.watch"),
+		UploadURLPrefix: v.GetURL("media.url.upload"),
+		RedisDSN:        v.GetURL("redis.dsn"),
 		AuthConfig: auth.Config{
 			Secret:     v.GetString("auth.jwt.secret"),
 			Expiration: v.GetDuration("auth.jwt.expiration"),

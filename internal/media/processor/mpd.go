@@ -54,9 +54,9 @@ func (p *Processor) constructMetadataAndGenerateMPD(
 		Duration: time.Duration(int64(totalDuration)/int64(timescale)) * time.Second,
 		Tracks:   dashTracks,
 	}
-	b, err := metaCfg.MPD()
+	b, err := metaCfg.StaticMPD()
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate MPD: %w", err)
+		return nil, fmt.Errorf("cannot generate StaticMPD: %w", err)
 	}
 	return b, nil
 }

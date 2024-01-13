@@ -27,10 +27,10 @@ func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
 	processorCfg := &processor.Config{
 		Logger:           logger,
 		Store:            nil,
-		VideoAPIEndpoint: v.GetString("videoapi.endpoint"),
+		VideoAPIEndpoint: v.GetURL("videoapi.endpoint"),
 		VideoAPIToken:    v.GetString("videoapi.token"),
-		InputPathPrefix:  v.GetString("s3.prefix.upload"),
-		OutputPathPrefix: v.GetString("s3.prefix.watch"),
+		InputPathPrefix:  v.GetURIPrefix("s3.prefix.upload"),
+		OutputPathPrefix: v.GetURIPrefix("s3.prefix.watch"),
 		SegmentDuration:  v.GetDuration("processor.segment_duration"),
 		VideoCheckPeriod: v.GetDuration("processor.video_check_period"),
 	}

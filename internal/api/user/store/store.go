@@ -20,8 +20,8 @@ const (
 
 	bcryptCost = 10
 
-	constrainUID      = "users_id_key"
-	constrainUsername = "users_name_key"
+	constrainUID      = "users_id"
+	constrainUsername = "users_name"
 )
 
 //go:embed migrations/*.sql
@@ -111,7 +111,11 @@ func handleDBErr(err error) error {
 	return fmt.Errorf("postgress error: %w", pgErr)
 }
 
+// salted prepends statically configured string to password.
 func (s *Store) salted(pwd string) []byte {
+	// TODO I dunno if manual salting is helping anything here
+	//	 because bcrypt also uses random salt by itself
+	//	 and we can't reproduce same hash anyway.
 	return append(s.salt, []byte(pwd)...)
 }
 
@@ -123,6 +127,7 @@ func (s *Store) hashPwd(pwd string) (string, error) {
 	return string(b), nil
 }
 
+// compare does 'special' bcrypt-comparison of hashes since we cannot compare them directly
 func (s *Store) compare(hash, pwd string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), s.salted(pwd)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {

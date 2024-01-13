@@ -27,9 +27,9 @@ func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
 
 	streamerCfg := streamer.Config{
 		Logger:        logger,
-		RedisDSN:      v.GetString("redis.dsn"),
-		URIPathPrefix: v.GetString("api.prefix"),
-		S3PathPrefix:  v.GetString("s3.prefix.watch"),
+		RedisDSN:      v.GetURL("redis.dsn"),
+		URIPathPrefix: v.GetURIPrefix("api.prefix"),
+		S3PathPrefix:  v.GetURIPrefix("s3.prefix.watch"),
 		S3Endpoint:    v.GetString("s3.endpoint"),
 		S3AccessKey:   v.GetString("s3.access_key"),
 		S3SecretKey:   v.GetString("s3.secret_key"),

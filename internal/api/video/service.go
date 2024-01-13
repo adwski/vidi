@@ -89,6 +89,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 
 	svc := &Service{
 		logger:          cfg.Logger,
+		s:               cfg.Store,
 		uploadSessions:  rUpload,
 		watchSessions:   rWatch,
 		auth:            authenticator,
@@ -98,9 +99,9 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	}
 
 	e := middleware.GetEchoWithDefaultMiddleware()
-	// User zone
 	api := e.Group(apiPrefix) // /api/video
 
+	// User zone
 	userAPI := api.Group("/user")
 	userAPI.Use(authenticator.MiddlewareUser())
 	userAPI.GET("/:id", svc.getVideo)
