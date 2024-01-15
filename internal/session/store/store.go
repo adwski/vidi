@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/adwski/vidi/internal/session"
 	"github.com/dgraph-io/ristretto"
 	jsoniter "github.com/json-iterator/go"
@@ -23,6 +25,10 @@ const (
 	ristrettoDefaultCost = 1
 )
 
+var (
+	ErrNotFound = errors.New("session not found")
+)
+
 // Store is a session store.
 // It supports Name parameter (which basically is session key prefix like "<prefix>:<key>")
 // Redis session is stored with preconfigured TTL
@@ -34,6 +40,7 @@ const (
 //
 // Only GetExpireCached() supports session caching.
 type Store struct {
+	logger   *zap.Logger
 	r        *redis.Client
 	cache    *ristretto.Cache
 	enc      jsoniter.API
@@ -43,6 +50,7 @@ type Store struct {
 }
 
 type Config struct {
+	Logger   *zap.Logger
 	Name     string
 	RedisDSN string
 	TTL      time.Duration
@@ -73,11 +81,12 @@ func NewStore(cfg *Config) (*Store, error) {
 		DB:       db,
 	})
 	return &Store{
-		r:     r,
-		cache: cache,
-		enc:   jsoniter.ConfigCompatibleWithStandardLibrary,
-		name:  []byte(cfg.Name),
-		ttl:   cfg.TTL,
+		logger: cfg.Logger.With(zap.String("component", "session-store")),
+		r:      r,
+		cache:  cache,
+		enc:    jsoniter.ConfigCompatibleWithStandardLibrary,
+		name:   []byte(cfg.Name),
+		ttl:    cfg.TTL,
 
 		// Local cache ttl is half of redis ttl,
 		// and after half-time we goto redis and update expiration.
@@ -86,11 +95,10 @@ func NewStore(cfg *Config) (*Store, error) {
 	}, nil
 }
 
-func (s *Store) Close() error {
+func (s *Store) Close() {
 	if err := s.r.Close(); err != nil {
-		return fmt.Errorf("error while closing redis connector: %w", err)
+		s.logger.Error("error while closing redis connector", zap.Error(err))
 	}
-	return nil
 }
 
 func (s *Store) getFullKey(key string) string {
@@ -112,6 +120,9 @@ func (s *Store) Set(ctx context.Context, sess *session.Session) error {
 func (s *Store) Get(ctx context.Context, key string) (*session.Session, error) {
 	b, err := s.r.Get(ctx, s.getFullKey(key)).Bytes()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf("cannot retrieve session: %w", err)
 	}
 	var sess session.Session
@@ -124,7 +135,7 @@ func (s *Store) Get(ctx context.Context, key string) (*session.Session, error) {
 func (s *Store) GetExpireCached(ctx context.Context, key string) (*session.Session, error) {
 	value, found := s.cache.Get(key)
 	if found {
-		v, _ := value.(session.Session) // allow unsafe type assertion
+		v, _ := value.(session.Session)
 		return &v, nil
 	}
 	sess, err := s.GetExpire(ctx, key)
@@ -133,7 +144,7 @@ func (s *Store) GetExpireCached(ctx context.Context, key string) (*session.Sessi
 	}
 	// We do not care if value is actually set.
 	// During continuous get calls it will be stored eventually.
-	// TODO Find out is it better to store copy of structs or pointers
+	// TODO Find out is it better to store copies or pointers
 	_ = s.cache.SetWithTTL(key, *sess, ristrettoDefaultCost, s.cacheTTL)
 	return sess, err
 }
@@ -142,6 +153,9 @@ func (s *Store) GetExpire(ctx context.Context, key string) (*session.Session, er
 	fullKey := s.getFullKey(key)
 	b, err := s.r.Get(ctx, fullKey).Bytes()
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf("cannot retrieve session: %w", err)
 	}
 	err = s.r.Expire(ctx, fullKey, s.ttl).Err()

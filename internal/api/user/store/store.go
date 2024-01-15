@@ -127,7 +127,7 @@ func (s *Store) hashPwd(pwd string) (string, error) {
 	return string(b), nil
 }
 
-// compare does 'special' bcrypt-comparison of hashes since we cannot compare them directly
+// compare does 'special' bcrypt-comparison of hashes since we cannot compare them directly.
 func (s *Store) compare(hash, pwd string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), s.salted(pwd)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {

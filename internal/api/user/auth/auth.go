@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adwski/vidi/internal/generators"
+
 	"github.com/adwski/vidi/internal/api/user/model"
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -69,6 +71,26 @@ func (a *Auth) NewTokenForUser(user *model.User) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(a.expirationTime()),
 		},
 	}
+	return a.makeSignedJwt(claims)
+}
+
+func (a *Auth) NewTokenForService(name string) (string, error) {
+	id, err := generators.NewID().Get()
+	if err != nil {
+		return "", fmt.Errorf("cannot generate id: %w", err)
+	}
+	claims := &Claims{
+		UserID: fmt.Sprintf("svc-%s", id),
+		Name:   name,
+		Role:   RoleNameService,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(a.expirationTime()),
+		},
+	}
+	return a.makeSignedJwt(claims)
+}
+
+func (a *Auth) makeSignedJwt(claims *Claims) (string, error) {
 	token := jwt.NewWithClaims(a.signingMethod, claims)
 	signedToken, err := token.SignedString(a.secret)
 	if err != nil {
@@ -96,7 +118,7 @@ func (a *Auth) MiddlewareService() echo.MiddlewareFunc {
 		ContextKey:             SessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "header:Authorization:Bearer",
+		TokenLookup:            "header:Authorization:Bearer ", // space is important!
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return new(Claims)
 		},

@@ -102,8 +102,8 @@ func (svc *Service) createVideo(c echo.Context) error {
 	newVideo := model.NewVideo(newID, u.ID)
 	err = svc.s.Create(c.Request().Context(), newVideo)
 	if err == nil {
-		if sessID, sessOK := svc.storeSessionAndReturnURL(c, newVideo, svc.uploadSessions); sessOK {
-			return c.JSON(http.StatusCreated, newVideo.UploadResponse(svc.getUploadURL(sessID)))
+		if sess, sessOK := svc.storeSessionAndReturnURL(c, newVideo, svc.uploadSessions); sessOK {
+			return c.JSON(http.StatusCreated, newVideo.UploadResponse(svc.getUploadURL(sess)))
 		}
 		return c.JSON(http.StatusInternalServerError, &common.Response{
 			Error: common.InternalError,
@@ -124,23 +124,25 @@ func (svc *Service) storeSessionAndReturnURL(
 	c echo.Context,
 	vi *model.Video,
 	sessStore *sessionStore.Store,
-) (string, bool) {
+) (*session.Session, bool) {
 	sessID, errSess := svc.idGen.Get()
 	if errSess != nil {
 		svc.logger.Error("cannot generate session id",
 			zap.String("type", sessStore.Name()),
 			zap.Error(errSess))
-		return "", false
+		return nil, false
 	}
-	errSess = sessStore.Set(c.Request().Context(), &session.Session{
-		ID:      sessID,
-		VideoID: vi.ID,
-	})
+	sess := &session.Session{
+		ID:       sessID,
+		VideoID:  vi.ID,
+		Location: vi.Location, // used for watch sessions
+	}
+	errSess = sessStore.Set(c.Request().Context(), sess)
 	if errSess != nil {
 		svc.logger.Error("cannot store session",
 			zap.String("type", sessStore.Name()),
 			zap.Error(errSess))
-		return "", false
+		return nil, false
 	}
-	return sessID, true
+	return sess, true
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/adwski/vidi/internal/media/store/s3"
 	"github.com/adwski/vidi/internal/session"
@@ -16,16 +15,17 @@ import (
 
 const (
 	internalError = "internal error"
+	notFoundError = "not found"
 
-	watchSessionDefaultTTL = 300 * time.Second
-
-	contentTypeSegment = "video/iso.segment"
-	contentTypeMPD     = "application/dash+xml"
+	contentTypeSegment  = "video/iso.segment"
+	contentTypeVideoMP4 = "video/mp4"
+	contentTypeMPD      = "application/dash+xml"
 )
 
 var (
 	methodGET      = []byte("GET")
 	objTypeSegment = []byte(".m4s")
+	objTypeMP4     = []byte(".mp4")
 	objTypeMPD     = []byte(".mpd")
 )
 
@@ -33,13 +33,19 @@ type Service struct {
 	logger       *zap.Logger
 	sessS        *sessionStore.Store
 	mediaS       *s3.Store
+	cors         *CORSConfig
 	s3PathPrefix []byte
 	uriPrefixLen int
 }
 
+type CORSConfig struct {
+	AllowOrigin string
+}
+
 type Config struct {
 	Logger        *zap.Logger
-	RedisDSN      string
+	SessionStore  *sessionStore.Store
+	CORSConfig    *CORSConfig
 	URIPathPrefix string
 	S3PathPrefix  string
 	S3Endpoint    string
@@ -50,14 +56,6 @@ type Config struct {
 }
 
 func New(cfg *Config) (*Service, error) {
-	rWatch, errReU := sessionStore.NewStore(&sessionStore.Config{
-		Name:     session.KindWatch,
-		RedisDSN: cfg.RedisDSN,
-		TTL:      watchSessionDefaultTTL,
-	})
-	if errReU != nil {
-		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
-	}
 	s3Store, errS3 := s3.NewStore(&s3.StoreConfig{
 		Logger:    cfg.Logger,
 		Endpoint:  cfg.S3Endpoint,
@@ -71,7 +69,8 @@ func New(cfg *Config) (*Service, error) {
 	}
 	return &Service{
 		logger:       cfg.Logger,
-		sessS:        rWatch,
+		sessS:        cfg.SessionStore,
+		cors:         cfg.CORSConfig,
 		mediaS:       s3Store,
 		s3PathPrefix: []byte(fmt.Sprintf("%s/", strings.TrimSuffix(cfg.S3PathPrefix, "/"))),
 		uriPrefixLen: len(cfg.URIPathPrefix),
@@ -100,6 +99,10 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 	// Retrieve session
 	sess, errSess := svc.sessS.GetExpireCached(ctx, sessID)
 	if errSess != nil {
+		if errors.Is(errSess, sessionStore.ErrNotFound) {
+			ctx.Error(notFoundError, fasthttp.StatusNotFound)
+			return
+		}
 		svc.logger.Debug("cannot get session", zap.Error(errSess))
 		ctx.Error(internalError, fasthttp.StatusNotFound)
 		return
@@ -123,13 +126,16 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 		zap.Int64("size", size),
 		zap.String("type", cType))
 
+	if svc.cors != nil {
+		ctx.Response.Header.Set("Access-Control-Allow-Origin", svc.cors.AllowOrigin)
+	}
 	ctx.Response.Header.Set("Content-Type", cType)
 	ctx.SetBodyStream(rc, int(size)) // reader will be closed by fasthttp
 }
 
 func (svc *Service) getSegmentName(sess *session.Session, path []byte) string {
 	var b []byte
-	return string(append(append(append(b, svc.s3PathPrefix...), []byte(sess.VideoID)...), path...))
+	return string(append(append(append(b, svc.s3PathPrefix...), []byte(sess.Location)...), path...))
 }
 
 func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byte, string, error) {
@@ -139,7 +145,7 @@ func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byt
 	}
 	sessionAndPath := uri[svc.uriPrefixLen+1:]
 	idx := bytes.IndexByte(sessionAndPath, '/')
-	if idx != -1 || idx+1 == len(sessionAndPath) {
+	if idx == -1 || idx+1 == len(sessionAndPath) {
 		return "", nil, "", errors.New("invalid uri")
 	}
 	var (
@@ -150,6 +156,8 @@ func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byt
 	switch {
 	case bytes.HasSuffix(path, objTypeSegment):
 		cType = contentTypeSegment
+	case bytes.HasSuffix(path, objTypeMP4): // for init segments
+		cType = contentTypeVideoMP4
 	case bytes.HasSuffix(path, objTypeMPD):
 		cType = contentTypeMPD
 	default:

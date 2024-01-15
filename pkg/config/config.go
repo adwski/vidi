@@ -50,6 +50,10 @@ func (vec *ViperEC) GetBool(key string) bool {
 	return s
 }
 
+func (vec *ViperEC) GetBoolNoError(key string) bool {
+	return cast.ToBool(vec.Get(key))
+}
+
 func (vec *ViperEC) GetString(key string) string {
 	s, err := cast.ToStringE(vec.Get(key))
 	if err != nil {

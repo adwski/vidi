@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/adwski/vidi/internal/api/video/client"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -38,6 +40,7 @@ type Processor struct {
 
 type Config struct {
 	Logger           *zap.Logger
+	Notificator      *notificator.Notificator
 	Store            MediaStore
 	VideoAPIEndpoint string
 	VideoAPIToken    string
@@ -51,15 +54,11 @@ func New(cfg *Config) *Processor {
 	return &Processor{
 		logger:           cfg.Logger.With(zap.String("component", "processor")),
 		st:               cfg.Store,
+		notificator:      cfg.Notificator,
 		segmentDuration:  cfg.SegmentDuration,
 		videoCheckPeriod: cfg.VideoCheckPeriod,
-		inputPathPrefix:  fmt.Sprintf("%s/", strings.TrimSuffix(cfg.InputPathPrefix, "/")),
-		outputPathPrefix: fmt.Sprintf("%s/", strings.TrimSuffix(cfg.OutputPathPrefix, "/")),
-		notificator: notificator.New(&notificator.Config{
-			Logger:        cfg.Logger,
-			VideoAPIURL:   cfg.VideoAPIEndpoint,
-			VideoAPIToken: cfg.VideoAPIToken,
-		}),
+		inputPathPrefix:  strings.TrimSuffix(cfg.InputPathPrefix, "/"),
+		outputPathPrefix: strings.TrimSuffix(cfg.OutputPathPrefix, "/"),
 		videoAPI: client.New(&client.Config{
 			Logger:   cfg.Logger,
 			Endpoint: cfg.VideoAPIEndpoint,
@@ -95,6 +94,9 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 		p.logger.Debug("no videos for processing")
 		return
 	}
+
+	p.logger.Info("got videos for processing", zap.Int("count", len(videos)))
+
 	for _, video := range videos {
 		p.notificator.Send(&event.Event{
 			Video: model.Video{
@@ -118,6 +120,7 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 				zap.String("id", video.ID),
 				zap.String("location", video.Location),
 				zap.Error(err))
+			continue
 		}
 		p.logger.Debug("video processed successfully",
 			zap.String("id", video.ID),
@@ -135,6 +138,7 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 
 func (p *Processor) processVideo(ctx context.Context, video *model.Video) error {
 	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, video.Location, defaultMediaStoreArtifactName)
+	spew.Dump(fullInputPath)
 	rc, _, err := p.st.Get(ctx, fullInputPath)
 	if err != nil {
 		return fmt.Errorf("cannot get input file: %w", err)

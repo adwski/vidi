@@ -19,7 +19,7 @@ services:
       VIDI_API_PREFIX: /upload
       VIDI_REDIS_DSN: redis://redis:6379/0
       VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
-      VIDI_VIDEOAPI_TOKEN: token # TODO add token
+      VIDI_VIDEOAPI_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJzdmMtQnNwMjhpcG1TSFdkSTdTSXdQMEo0QSIsIm5hbWUiOiJub3RpZmljYXRvciIsInJvbGUiOiJzZXJ2aWNlIiwiZXhwIjoxNzM2ODgwMDk0fQ.xjMV5Z_EBGch6fYM9ZSSC3W9QKjij2S0zI8HGz8wrAY"
       VIDI_SERVER_ADDRESS: ":8080"
       VIDI_S3_PREFIX_UPLOAD: /upload
       VIDI_S3_ENDPOINT: minio:9000
@@ -50,6 +50,8 @@ services:
       VIDI_S3_ACCESS_KEY: admin
       VIDI_S3_SECRET_KEY: password
       VIDI_S3_BUCKET: vidi
+      VIDI_CORS_ENABLE: true
+      VIDI_CORS_ALLOW_ORIGIN: "*"
     expose:
       - 8080
     networks:
@@ -67,7 +69,7 @@ services:
       target: dev
     environment:
       VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
-      VIDI_VIDEOAPI_TOKEN: token # TODO add token
+      VIDI_VIDEOAPI_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJzdmMtQnNwMjhpcG1TSFdkSTdTSXdQMEo0QSIsIm5hbWUiOiJub3RpZmljYXRvciIsInJvbGUiOiJzZXJ2aWNlIiwiZXhwIjoxNzM2ODgwMDk0fQ.xjMV5Z_EBGch6fYM9ZSSC3W9QKjij2S0zI8HGz8wrAY"
       VIDI_S3_PREFIX_UPLOAD: /upload
       VIDI_S3_PREFIX_WATCH: /videos
       VIDI_S3_ENDPOINT: minio:9000

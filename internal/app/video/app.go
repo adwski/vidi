@@ -8,6 +8,8 @@ import (
 	"github.com/adwski/vidi/internal/api/video"
 	"github.com/adwski/vidi/internal/api/video/store"
 	"github.com/adwski/vidi/internal/app"
+	"github.com/adwski/vidi/internal/session"
+	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +23,7 @@ func NewApp() *App {
 	return a
 }
 
-func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
+func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) {
 	var (
 		logger = a.Logger()
 		v      = a.Viper()
@@ -35,7 +37,6 @@ func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 		APIPrefix:       v.GetURIPrefix("api.prefix"),
 		WatchURLPrefix:  v.GetURL("media.url.watch"),
 		UploadURLPrefix: v.GetURL("media.url.upload"),
-		RedisDSN:        v.GetURL("redis.dsn"),
 		AuthConfig: auth.Config{
 			Secret:     v.GetString("auth.jwt.secret"),
 			Expiration: v.GetDuration("auth.jwt.expiration"),
@@ -51,10 +52,32 @@ func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 		WriteTimeout:      v.GetDuration("server.timeouts.write"),
 		IdleTimeout:       v.GetDuration("server.timeouts.idle"),
 	}
+	uploadSessionStoreCfg := &sessionStore.Config{
+		Logger:   logger,
+		Name:     session.KindUpload,
+		RedisDSN: v.GetURL("redis.dsn"),
+		TTL:      v.GetDuration("redis.ttl.upload"),
+	}
+	watchSessionStoreCfg := &sessionStore.Config{
+		Logger:   logger,
+		Name:     session.KindWatch,
+		RedisDSN: v.GetURL("redis.dsn"),
+		TTL:      v.GetDuration("redis.ttl.watch"),
+	}
 	if v.HasErrors() {
 		for param, errP := range v.Errors() {
 			logger.Error("configuration error", zap.String("param", param), zap.Error(errP))
 		}
+		return nil, nil, false
+	}
+	uploadSessStore, errSSU := sessionStore.NewStore(uploadSessionStoreCfg)
+	if errSSU != nil {
+		logger.Error("cannot configure upload session store", zap.Error(errSSU))
+		return nil, nil, false
+	}
+	watchSessStore, errSSW := sessionStore.NewStore(watchSessionStoreCfg)
+	if errSSW != nil {
+		logger.Error("cannot configure watch session store", zap.Error(errSSW))
 		return nil, nil, false
 	}
 	videoStorage, errStore := store.New(ctx, storeCfg)
@@ -62,6 +85,8 @@ func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 		logger.Error("could not configure api storage", zap.Error(errStore))
 		return nil, nil, false
 	}
+	svcCfg.UploadSessionStore = uploadSessStore
+	svcCfg.WatchSessionStore = watchSessStore
 	svcCfg.Store = videoStorage
 	svc, errSvc := video.NewService(svcCfg)
 	if errSvc != nil {
@@ -74,5 +99,5 @@ func (a *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 		return nil, nil, false
 	}
 	srv.SetHandler(svc)
-	return srv, videoStorage, true
+	return []app.Runner{srv}, []app.Closer{videoStorage, uploadSessStore, watchSessStore}, true
 }

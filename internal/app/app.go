@@ -28,6 +28,8 @@ const (
 
 	defaultSegmentDuration    = 3 * time.Second
 	defaultVideoCheckInterval = 5 * time.Second
+
+	defaultRedisTTL = 300 * time.Second
 )
 
 type Runner interface {
@@ -38,14 +40,16 @@ type Closer interface {
 	Close()
 }
 
+type Initializer func(context.Context) ([]Runner, []Closer, bool)
+
 type App struct {
 	defaultLogger *zap.Logger
 	logger        *zap.Logger
 	viper         *config.ViperEC
-	initializer   func(ctx context.Context) (Runner, Closer, bool)
+	initializer   Initializer
 }
 
-func New(initializer func(ctx context.Context) (Runner, Closer, bool)) *App {
+func New(initializer Initializer) *App {
 	return &App{
 		defaultLogger: logging.GetZapLoggerDefaultLevel(),
 		viper:         config.NewViperEC(),
@@ -80,7 +84,7 @@ func (app *App) run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	runner, closer, ok := app.initializer(ctx)
+	runners, closers, ok := app.initializer(ctx)
 	if !ok {
 		return 1
 	}
@@ -89,8 +93,10 @@ func (app *App) run() int {
 		wg   = &sync.WaitGroup{}
 		errc = make(chan error)
 	)
-	wg.Add(1)
-	go runner.Run(ctx, wg, errc)
+	for _, r := range runners {
+		wg.Add(1)
+		go r.Run(ctx, wg, errc)
+	}
 
 	select {
 	case <-ctx.Done():
@@ -99,8 +105,8 @@ func (app *App) run() int {
 		cancel()
 	}
 	wg.Wait()
-	if closer != nil {
-		closer.Close()
+	for _, c := range closers {
+		c.Close()
 	}
 	return 0
 }
@@ -149,6 +155,8 @@ func (app *App) setConfigDefaults() {
 	v.SetDefault("server.timeouts.idle", defaultIdleTimeout)
 	// Redis
 	v.SetDefault("redis.dsn", "redis://localhost:6379/0")
+	v.SetDefault("redis.ttl.upload", defaultRedisTTL)
+	v.SetDefault("redis.ttl.watch", defaultRedisTTL)
 	// S3
 	v.SetDefault("s3.prefix.upload", "/")
 	v.SetDefault("s3.prefix.watch", "/")

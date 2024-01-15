@@ -59,10 +59,15 @@ func (s *Status) UnmarshalJSON(b []byte) (err error) {
 	case int:
 		*s = Status(value)
 		if s.String() == "" {
-			err = fmt.Errorf("unknown status num: %d", value)
+			err = fmt.Errorf("unknown status num: %v", value)
+		}
+	case float64:
+		*s = Status(int(value))
+		if s.String() == "" {
+			err = fmt.Errorf("unknown status num: %f", value)
 		}
 	default:
-		err = errors.New("invalid status")
+		err = fmt.Errorf("status unmarshal error, invalid type: %T", v)
 	}
 	return
 }

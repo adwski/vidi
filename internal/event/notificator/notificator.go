@@ -41,7 +41,7 @@ func (n *Notificator) Send(ev *event.Event) {
 	n.evCh <- ev
 }
 
-func (n *Notificator) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (n *Notificator) Run(ctx context.Context, wg *sync.WaitGroup, _ chan<- error) {
 	n.logger.Info("started")
 	defer wg.Done()
 Loop:
@@ -54,7 +54,7 @@ Loop:
 			n.processEvent(ev)
 		}
 	}
-	n.logger.Info("shutting down")
+	n.logger.Info("stopping")
 	for ev := range n.evCh {
 		n.processEvent(ev)
 	}

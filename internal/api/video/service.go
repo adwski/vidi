@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/adwski/vidi/internal/mp4"
+	"github.com/adwski/vidi/internal/session"
 
 	"github.com/adwski/vidi/internal/api/middleware"
 	common "github.com/adwski/vidi/internal/api/model"
@@ -30,14 +32,6 @@ type Store interface {
 	UpdateStatus(ctx context.Context, vi *model.Video) error
 }
 
-const (
-	sessionTypeWatch  = "watch"
-	sessionTypeUpload = "upload"
-
-	uploadSessionDefaultTTL = 300 * time.Second
-	watchSessionDefaultTTL  = 300 * time.Second
-)
-
 type Service struct {
 	*echo.Echo
 	logger          *zap.Logger
@@ -51,13 +45,14 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	Logger          *zap.Logger
-	Store           Store
-	APIPrefix       string
-	WatchURLPrefix  string
-	UploadURLPrefix string
-	RedisDSN        string
-	AuthConfig      auth.Config
+	Logger             *zap.Logger
+	Store              Store
+	APIPrefix          string
+	WatchURLPrefix     string
+	UploadURLPrefix    string
+	UploadSessionStore *sessionStore.Store
+	WatchSessionStore  *sessionStore.Store
+	AuthConfig         auth.Config
 }
 
 func NewService(cfg *ServiceConfig) (*Service, error) {
@@ -69,29 +64,11 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 		return nil, fmt.Errorf("cannot configure authenticator: %w", err)
 	}
 
-	rUpload, errReU := sessionStore.NewStore(&sessionStore.Config{
-		Name:     sessionTypeUpload,
-		RedisDSN: cfg.RedisDSN,
-		TTL:      uploadSessionDefaultTTL,
-	})
-	if errReU != nil {
-		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
-	}
-
-	rWatch, errReW := sessionStore.NewStore(&sessionStore.Config{
-		Name:     sessionTypeWatch,
-		RedisDSN: cfg.RedisDSN,
-		TTL:      watchSessionDefaultTTL,
-	})
-	if errReW != nil {
-		return nil, fmt.Errorf("cannot configure watch session store: %w", errReW)
-	}
-
 	svc := &Service{
 		logger:          cfg.Logger,
 		s:               cfg.Store,
-		uploadSessions:  rUpload,
-		watchSessions:   rWatch,
+		uploadSessions:  cfg.UploadSessionStore,
+		watchSessions:   cfg.WatchSessionStore,
 		auth:            authenticator,
 		idGen:           generators.NewID(),
 		watchURLPrefix:  strings.TrimRight(cfg.WatchURLPrefix, "/"),
@@ -115,7 +92,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	serviceAPI.PUT("/:id/location/:location", svc.updateVideoLocation)
 	serviceAPI.PUT("/:id/status/:status", svc.updateVideoStatus)
 	serviceAPI.PUT("/:id", svc.updateVideo)
-	serviceAPI.GET("/search", svc.listVideos)
+	serviceAPI.POST("/search", svc.listVideos)
 
 	svc.Echo = e
 	return svc, nil
@@ -125,12 +102,12 @@ func (svc *Service) Handler() http.Handler {
 	return svc.Echo
 }
 
-func (svc *Service) getUploadURL(sessionID string) string {
-	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sessionID)
+func (svc *Service) getUploadURL(sess *session.Session) string {
+	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sess.ID)
 }
 
-func (svc *Service) getWatchURL(sessionID string) string {
-	return fmt.Sprintf("%s/%s", svc.watchURLPrefix, sessionID)
+func (svc *Service) getWatchURL(sess *session.Session) string {
+	return fmt.Sprintf("%s/%s/%s", svc.watchURLPrefix, sess.ID, mp4.MPDSuffix)
 }
 
 func (svc *Service) commonResponse(c echo.Context, err error) error {

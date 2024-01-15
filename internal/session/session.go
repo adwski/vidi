@@ -6,6 +6,7 @@ const (
 )
 
 type Session struct {
-	ID      string `json:"sid"`
-	VideoID string `json:"vid"` // seconds
+	ID       string `json:"sid"`
+	VideoID  string `json:"vid"`
+	Location string `json:"loc"`
 }

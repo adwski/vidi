@@ -21,10 +21,10 @@ func NewApp() *App {
 	return a
 }
 
-func (app *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
+func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) {
 	var (
-		logger = app.Logger()
-		v      = app.Viper()
+		logger = a.Logger()
+		v      = a.Viper()
 	)
 
 	storeCfg := &store.Config{
@@ -74,5 +74,5 @@ func (app *App) configure(ctx context.Context) (app.Runner, app.Closer, bool) {
 		return nil, nil, false
 	}
 	srv.SetHandler(svc)
-	return srv, userStorage, true
+	return []app.Runner{srv}, []app.Closer{userStorage}, true
 }

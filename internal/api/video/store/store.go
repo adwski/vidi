@@ -53,8 +53,8 @@ func (s *Store) Create(ctx context.Context, vi *model.Video) error {
 
 func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error) {
 	vi := &model.Video{ID: id, UserID: userID}
-	query := `select location, status from videos where id = $1 and user_id = $2`
-	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status); err != nil {
+	query := `select location, status, created_at from videos where id = $1 and user_id = $2`
+	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status, &vi.CreatedAt); err != nil {
 		return nil, handleDBErr(err)
 	}
 	return vi, nil
@@ -75,6 +75,7 @@ func (s *Store) GetListByStatus(ctx context.Context, status model.Status) ([]*mo
 	}
 	videos, errR := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Video, error) {
 		var vi model.Video
+		vi.Status = status
 		if errS := row.Scan(&vi.ID, &vi.UserID, &vi.Location, &vi.CreatedAt); errS != nil {
 			return nil, fmt.Errorf("error while scanning row: %w", errS)
 		}
@@ -97,13 +98,13 @@ func (s *Store) UpdateLocation(ctx context.Context, vi *model.Video) error {
 
 func (s *Store) UpdateStatus(ctx context.Context, vi *model.Video) error {
 	query := `update videos set status = $2 where id = $1`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.Status)
+	tag, err := s.Pool().Exec(ctx, query, vi.ID, int(vi.Status))
 	return handleTagOneRowAndErr(&tag, err)
 }
 
 func (s *Store) Update(ctx context.Context, vi *model.Video) error {
 	query := `update videos set status = $2, location = $3 where id = $1`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.Status, vi.Location)
+	tag, err := s.Pool().Exec(ctx, query, vi.ID, int(vi.Status), vi.Location)
 	return handleTagOneRowAndErr(&tag, err)
 }
 

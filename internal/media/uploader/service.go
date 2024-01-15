@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -21,10 +20,9 @@ import (
 
 const (
 	internalError = "internal error"
+	notFoundError = "not found"
 
 	defaultMediaStoreArtifactName = "/artifact.mp4"
-
-	uploadSessionDefaultTTL = 300 * time.Second
 )
 
 var (
@@ -43,28 +41,19 @@ type Service struct {
 }
 
 type Config struct {
-	Logger        *zap.Logger
-	RedisDSN      string
-	URIPathPrefix string
-	S3PathPrefix  string
-	VideoAPIURL   string
-	VideoAPIToken string
-	S3Endpoint    string
-	S3AccessKey   string
-	S3SecretKey   string
-	S3Bucket      string
-	S3SSL         bool
+	Logger         *zap.Logger
+	Notificator    *notificator.Notificator
+	SessionStorage *sessionStore.Store
+	URIPathPrefix  string
+	S3PathPrefix   string
+	S3Endpoint     string
+	S3AccessKey    string
+	S3SecretKey    string
+	S3Bucket       string
+	S3SSL          bool
 }
 
 func New(cfg *Config) (*Service, error) {
-	rUpload, errReU := sessionStore.NewStore(&sessionStore.Config{
-		Name:     session.KindUpload,
-		RedisDSN: cfg.RedisDSN,
-		TTL:      uploadSessionDefaultTTL,
-	})
-	if errReU != nil {
-		return nil, fmt.Errorf("cannot configure upload session store: %w", errReU)
-	}
 	s3Store, errS3 := s3.NewStore(&s3.StoreConfig{
 		Logger:       cfg.Logger,
 		Endpoint:     cfg.S3Endpoint,
@@ -82,13 +71,9 @@ func New(cfg *Config) (*Service, error) {
 		s3pathPrefix: []byte(fmt.Sprintf("%s/", strings.TrimSuffix(cfg.S3PathPrefix, "/"))),
 		s3pathSuffix: []byte(defaultMediaStoreArtifactName),
 		logger:       cfg.Logger.With(zap.String("component", "uploader")),
-		sessS:        rUpload,
+		sessS:        cfg.SessionStorage,
 		mediaS:       s3Store,
-		notificator: notificator.New(&notificator.Config{
-			Logger:        cfg.Logger,
-			VideoAPIURL:   cfg.VideoAPIURL,
-			VideoAPIToken: cfg.VideoAPIToken,
-		}),
+		notificator:  cfg.Notificator,
 	}, nil
 }
 
@@ -123,8 +108,12 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	// TODO should we also update session TTL if upload size is significant?
 	sess, errSess := svc.sessS.Get(ctx, sessID)
 	if errSess != nil {
-		svc.logger.Debug("cannot get session", zap.Error(errSess))
-		ctx.Error(internalError, fasthttp.StatusNotFound)
+		if errors.Is(errSess, sessionStore.ErrNotFound) {
+			ctx.Error(notFoundError, fasthttp.StatusNotFound)
+			return
+		}
+		svc.logger.Error("cannot get session", zap.Error(errSess))
+		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -217,7 +206,7 @@ func checkHeader(ctx *fasthttp.RequestCtx) (int, error) {
 
 func (svc *Service) getUploadArtifactName(sess *session.Session) string {
 	var b []byte
-	return string(append(append(append(b, svc.s3pathPrefix...), []byte(sess.VideoID)...), svc.s3pathSuffix...))
+	return string(append(append(append(b, svc.s3pathPrefix...), []byte(sess.ID)...), svc.s3pathSuffix...))
 }
 
 func (svc *Service) getSessionIDFromRequestURI(uri []byte) (string, error) {

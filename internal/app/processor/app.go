@@ -3,6 +3,8 @@ package processor
 import (
 	"context"
 
+	"github.com/adwski/vidi/internal/event/notificator"
+
 	"github.com/adwski/vidi/internal/app"
 	"github.com/adwski/vidi/internal/media/processor"
 	"github.com/adwski/vidi/internal/media/store/s3"
@@ -19,14 +21,13 @@ func NewApp() *App {
 	return a
 }
 
-func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
+func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 	var (
 		logger = a.Logger()
 		v      = a.Viper()
 	)
 	processorCfg := &processor.Config{
 		Logger:           logger,
-		Store:            nil,
 		VideoAPIEndpoint: v.GetURL("videoapi.endpoint"),
 		VideoAPIToken:    v.GetString("videoapi.token"),
 		InputPathPrefix:  v.GetURIPrefix("s3.prefix.upload"),
@@ -42,6 +43,11 @@ func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
 		Bucket:    v.GetString("s3.bucket"),
 		SSL:       v.GetBool("s3.ssl"),
 	}
+	notificatorCfg := &notificator.Config{
+		Logger:        logger,
+		VideoAPIURL:   v.GetURL("videoapi.endpoint"),
+		VideoAPIToken: v.GetString("videoapi.token"),
+	}
 	if v.HasErrors() {
 		for param, errP := range v.Errors() {
 			logger.Error("configuration error", zap.String("param", param), zap.Error(errP))
@@ -53,6 +59,7 @@ func (a *App) configure(_ context.Context) (app.Runner, app.Closer, bool) {
 		logger.Error("cannot create s3 storage", zap.Error(err))
 		return nil, nil, false
 	}
+	processorCfg.Notificator = notificator.New(notificatorCfg)
 	processorCfg.Store = store
-	return processor.New(processorCfg), nil, true
+	return []app.Runner{processor.New(processorCfg), processorCfg.Notificator}, nil, true
 }

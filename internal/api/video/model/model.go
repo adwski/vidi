@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -14,8 +15,8 @@ type Video struct {
 	CreatedAt time.Time `json:"created_at"`
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
-	Location  string    `json:"loc"`
-	Status    Status    `json:"status"`
+	Location  string    `json:"loc,omitempty"`
+	Status    Status    `json:"status,omitempty"`
 }
 
 type VideoUpdateRequest struct {
@@ -32,6 +33,10 @@ type VideoResponse struct {
 
 type ListRequest struct {
 	Status Status `json:"status"`
+}
+
+func (lr *ListRequest) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"status": "%s"}`, lr.Status.String())), nil
 }
 
 type WatchResponse struct {

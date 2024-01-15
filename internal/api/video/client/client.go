@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/go-resty/resty/v2"
@@ -30,11 +32,16 @@ type Config struct {
 }
 
 func New(cfg *Config) *Client {
-	return &Client{
+	c := &Client{
 		c:        resty.New(),
+		token:    cfg.Token,
 		logger:   cfg.Logger.With(zap.String("component", "video-api-client")),
 		endpoint: strings.TrimSuffix(cfg.Endpoint, "/"),
 	}
+	if len(c.token) == 0 {
+		c.logger.Warn("starting with empty token")
+	}
+	return c
 }
 
 func (c *Client) GetUploadedVideos(ctx context.Context) ([]*model.Video, error) {
@@ -47,7 +54,10 @@ func (c *Client) GetUploadedVideos(ctx context.Context) ([]*model.Video, error) 
 		SetAuthToken(c.token).
 		SetError(&errResponse).
 		SetResult(&videosResponse).
-		Get(fmt.Sprintf("%s/service/search", c.endpoint))
+		SetBody(&model.ListRequest{
+			Status: model.VideoStatusUploaded,
+		}).
+		Post(fmt.Sprintf("%s/service/search", c.endpoint))
 	if err != nil {
 		return nil, c.handleError(resp, &errResponse, err)
 	}
@@ -64,18 +74,19 @@ func (c *Client) UpdateVideoLocation(videoID, param string) error {
 
 func (c *Client) makeUpdateRequest(videoID, param, value string) error {
 	response, req := c.constructUpdateRequest()
-	resp, err := req.Post(fmt.Sprintf("%s/serivce/%s/%s/%s", c.endpoint, videoID, param, value))
+	resp, err := req.Put(fmt.Sprintf("%s/service/%s/%s/%s", c.endpoint, videoID, param, value))
 	return c.handleError(resp, response, err)
 }
 
 func (c *Client) UpdateVideo(videoID, status, location string) error {
 	response, req := c.constructUpdateRequest()
+	spew.Dump(req.Token)
 	resp, err := req.
 		SetBody(&model.VideoUpdateRequest{
 			Status:   status,
 			Location: location,
 		}).
-		Post(fmt.Sprintf("%s/serivce/%s", c.endpoint, videoID))
+		Put(fmt.Sprintf("%s/service/%s", c.endpoint, videoID))
 	return c.handleError(resp, response, err)
 }
 
@@ -93,7 +104,10 @@ func (c *Client) handleError(resp *resty.Response, response *common.Response, er
 		return fmt.Errorf("error while making video api request: %w", err)
 	}
 	if resp.IsError() {
-		return fmt.Errorf("video api responded with error status: %s", response.Error)
+		c.logger.Error("api call returned error",
+			zap.String("status", resp.Status()),
+			zap.String("api-error", response.Error))
+		return fmt.Errorf("video api responded with error %s status", resp.Status())
 	}
 	c.logger.Debug("video api request ok")
 	return nil

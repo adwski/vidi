@@ -41,6 +41,11 @@ func (svc *Service) updateVideoLocation(c echo.Context) error {
 	}
 	id := c.Param("id")
 	location := c.Param("location")
+	if len(location) == 0 {
+		return c.JSON(http.StatusBadRequest, &common.Response{
+			Error: "location cannot be empty",
+		})
+	}
 	err := svc.s.UpdateLocation(c.Request().Context(), &model.Video{
 		ID:       id,
 		Location: location,
@@ -59,7 +64,7 @@ func (svc *Service) updateVideoStatus(c echo.Context) error {
 			Error: err.Error(),
 		})
 	}
-	err = svc.s.UpdateLocation(c.Request().Context(), &model.Video{
+	err = svc.s.UpdateStatus(c.Request().Context(), &model.Video{
 		ID:     id,
 		Status: status,
 	})
