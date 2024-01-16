@@ -29,7 +29,8 @@ const (
 	defaultSegmentDuration    = 3 * time.Second
 	defaultVideoCheckInterval = 5 * time.Second
 
-	defaultRedisTTL = 300 * time.Second
+	defaultUploadSessionTTL = 300 * time.Second
+	defaultWatchSessionTTL  = 600 * time.Second
 )
 
 type Runner interface {
@@ -155,8 +156,8 @@ func (app *App) setConfigDefaults() {
 	v.SetDefault("server.timeouts.idle", defaultIdleTimeout)
 	// Redis
 	v.SetDefault("redis.dsn", "redis://localhost:6379/0")
-	v.SetDefault("redis.ttl.upload", defaultRedisTTL)
-	v.SetDefault("redis.ttl.watch", defaultRedisTTL)
+	v.SetDefault("redis.ttl.upload", defaultUploadSessionTTL)
+	v.SetDefault("redis.ttl.watch", defaultWatchSessionTTL)
 	// S3
 	v.SetDefault("s3.prefix.upload", "/")
 	v.SetDefault("s3.prefix.watch", "/")

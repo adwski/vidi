@@ -1,6 +1,11 @@
 .PHONY: docker-dev
 docker-dev:
 	cd docker/compose ;\
+	docker compose up -d
+	docker ps
+
+docker-dev-build:
+	cd docker/compose ;\
 	docker compose up -d --build
 	docker ps
 

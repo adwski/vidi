@@ -23,7 +23,7 @@ curl -v -XPOST -H "Content-Type: application/json" \
 
 Response should also be `200 OK` with authentication cookie. Both cookies will work until expiration time, which is 12 hours by default.
 
-From this point we can make authenticated requests using received cookie. For convenience, we can make an alias:
+From this point you can make authenticated requests using received cookie. For convenience, you can make an alias:
 
 ```shell
 alias curl_auth='curl --cookie "vidiSessID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJRT0RBUW5xM1NkNjg2bmtsQ1RHZkhnIiwibmFtZSI6ImpvaG5TIiwiZXhwIjoxNzA1MTg2MjgyfQ.KnwB89hW9tQRvW18e_Xno45nvc_7aMcJimJ2ehVuMIM"'
@@ -33,13 +33,13 @@ alias curl_auth='curl --cookie "vidiSessID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
 
 #### Prepare file
 
-Prepare mp4 video file. At this time, vidi supports only mp4 files with `AVC (h.264)` video codec and `mp4a` audio codec. 
+At this time, vidi supports only mp4 files with `AVC (h.264)` video codec and `mp4a` audio codec. 
 
-To check if file is supported, you can use vidi cli:
+To check if your file is supported, you can use vidi cli:
 ```shell
 go run cmd/vidi/vidi.go mp4 dump -f ./testfiles/test_seq_h264_high.mp4
 ```
-At the end of output should be: "Codecs are supported!"
+At the end of output should be message `Codecs are supported!`.
 
 #### Upload video
 
@@ -52,13 +52,13 @@ curl_auth -v -XPOST http://localhost:8080/api/video/user/
 ```
 You should receive `201 Created` and video object parameters. Most important one is `upload_url`, which should be used to upload mp4 video file. This url is unique and valid for a short period of time (default upload session time is 5 min).
 
-Now you can actually upload video file:
+Now you can actually upload video:
 
 ```shell
 curl -v -XPOST http://localhost:8080/upload/4F0lCtrmSl27B2bRFQNvDg -H "Content-Type: video/mp4" --data-binary "@./testfiles/test_seq_h264_high.mp4"
 ```
 
-After successful upload response should be `204 No Content`. You can check video status by using video ID from video creation response. Status could be `uploaded` or `ready` if video is very short and was already process.
+Successful upload response should be `204 No Content`. You can check video status by using video ID from video creation response. Status could be `uploaded` or `ready` if video is very short and was already process.
 
 ```shell
 curl_auth -v -XGET http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw
@@ -67,7 +67,9 @@ curl_auth -v -XGET http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw
 {"id":"PMO7_KJTRO2xntQyQdfRAw","status":"ready","created_at":"0001-01-01 00:00:00 +0000 UTC"}
 ```
 
-If video is ready, you can get watch URL by calling:
+#### Watch video
+
+If video is `ready`, you can get watch URL by calling:
 ```shell
 curl_auth -v -XPOST http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw/watch
 ```
@@ -76,6 +78,14 @@ curl_auth -v -XPOST http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw/
 ```
 
 Response will contain generated unique URL that can be fed to any player that understands MPEG-DASH.
+
+Compose project provides dash.js player which can be used to test if video can actually be played. Open http://localhost:8080/ in Chrome, paste `watch_url` at the input bar on the top and hit play. Video should start playing.
+
+> (Relatively) latest chrome should play video with no problems. There's some issues with Safari, do not use it for now. Other browsers were not tested.
+
+Watch URL will be valid as long as session is not expired (which is 10 min by default). If session is expired, watch URL will return 404. To watch video again, you should again request watch URL from video API.
+
+#### Delete video
 
 If video is no longer needed you may delete it using:
 ```shell

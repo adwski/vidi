@@ -7,7 +7,7 @@ This is a final project for Yandex Practicum's Go Course.
 Vidi is a media server that supports:
  - simple user registration
  - video uploading by registered users
- - On-demand streaming of uploaded video using MPEG-DASH
+ - On-demand streaming of uploaded videos using MPEG-DASH
 
 Uploaded mp4 files are pre-processed, so they could be streamed to dash clients. Preprocessing includes:
  - Segmentation (using awesome [Eyevinn/mp4ff](https://github.com/Eyevinn/mp4ff) package)
@@ -30,9 +30,6 @@ make docker-dev
 make docker-dev-clean
 ```
 
-### Tips
+### Happy Path
 
-Check codec support in browser console
-```javascript
-MediaSource.isTypeSupported('video/mp4;codecs="avc1.64001e"')
-```
+User interaction flow is described [here](./docs/happy_path.md).
