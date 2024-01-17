@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/adwski/vidi/internal/api/video/client"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -138,7 +136,6 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 
 func (p *Processor) processVideo(ctx context.Context, video *model.Video) error {
 	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, video.Location, defaultMediaStoreArtifactName)
-	spew.Dump(fullInputPath)
 	rc, _, err := p.st.Get(ctx, fullInputPath)
 	if err != nil {
 		return fmt.Errorf("cannot get input file: %w", err)

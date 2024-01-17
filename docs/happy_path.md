@@ -58,7 +58,7 @@ Now you can actually upload video:
 curl -v -XPOST http://localhost:8080/upload/4F0lCtrmSl27B2bRFQNvDg -H "Content-Type: video/mp4" --data-binary "@./testfiles/test_seq_h264_high.mp4"
 ```
 
-Successful upload response should be `204 No Content`. You can check video status by using video ID from video creation response. Status could be `uploaded` or `ready` if video is very short and was already process.
+Successful upload response should be `204 No Content`. You can check video status by using video ID from video creation response. Status could be `uploaded` or `ready` if video is very short and was already processed.
 
 ```shell
 curl_auth -v -XGET http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw
@@ -79,11 +79,11 @@ curl_auth -v -XPOST http://localhost:8080/api/video/user/PMO7_KJTRO2xntQyQdfRAw/
 
 Response will contain generated unique URL that can be fed to any player that understands MPEG-DASH.
 
-Compose project provides dash.js player which can be used to test if video can actually be played. Open http://localhost:8080/ in Chrome, paste `watch_url` at the input bar on the top and hit play. Video should start playing.
+Compose project provides dash.js player which can be used to test if video can actually be played. Open http://localhost:8080/ in Chrome, paste `watch_url` into the input bar at the top and hit play. Video should start playing.
 
 > (Relatively) latest chrome should play video with no problems. There's some issues with Safari, do not use it for now. Other browsers were not tested.
 
-Watch URL will be valid as long as session is not expired (which is 10 min by default). If session is expired, watch URL will return 404. To watch video again, you should again request watch URL from video API.
+Watch URL will be valid as long as session is not expired (which is 5 min after last segment request by default). If session is expired, watch URL will return 404. To watch video again, you should again request watch URL from video API.
 
 #### Delete video
 

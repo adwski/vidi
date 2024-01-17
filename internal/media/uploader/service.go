@@ -30,6 +30,9 @@ var (
 	methodPOST     = []byte("POST")
 )
 
+// Service is a media file uploader service. It implements fasthttp handler that
+// reads uploaded file and stores it in media store.
+// Every request is also checked for valid "upload"-session.
 type Service struct {
 	logger       *zap.Logger
 	sessS        *sessionStore.Store
@@ -135,6 +138,8 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 		}
 	}()
 
+	// Manually pipe data streams because there's no native way
+	// to do it using fasthttp and s3 client together.
 	var (
 		r, w            = io.Pipe()
 		done            = make(chan struct{})

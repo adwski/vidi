@@ -56,7 +56,7 @@ func (p *Processor) constructMetadataAndGenerateMPD(
 	}
 	b, err := metaCfg.StaticMPD()
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate StaticMPD: %w", err)
+		return nil, fmt.Errorf("cannot generate MPD: %w", err)
 	}
 	return b, nil
 }

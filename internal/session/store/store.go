@@ -88,9 +88,9 @@ func NewStore(cfg *Config) (*Store, error) {
 		name:   []byte(cfg.Name),
 		ttl:    cfg.TTL,
 
-		// Local cache ttl is half of redis ttl,
-		// and after half-time we goto redis and update expiration.
-		// It is important to not lose session in redis.
+		// Local cache ttl is half of redis ttl.
+		// Because of this after half-time we goto redis and update expiration,
+		// since we don't want to lose session in redis.
 		cacheTTL: cfg.TTL / 2, //nolint:gomnd  // explained above, no need for constant
 	}, nil
 }

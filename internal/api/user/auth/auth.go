@@ -24,6 +24,9 @@ const (
 	RoleNameService = "service"
 )
 
+// Auth us an authenticator that can
+// 1) Issue jwt token for user or service
+// 2) Create echo jwt middleware for jwt validation.
 type Auth struct {
 	signingMethod jwt.SigningMethod
 	domain        string

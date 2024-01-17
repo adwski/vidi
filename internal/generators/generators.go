@@ -7,6 +7,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 )
 
+// ID is a UUIDv4 generator. UUID is returned as byte string.
 type ID struct {
 	gen *uuid.Gen
 }

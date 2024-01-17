@@ -16,6 +16,7 @@ import (
 // It also generates StaticMPD schema.
 func (p *Processor) ProcessFileFromReader(ctx context.Context, r io.Reader, location string) error {
 	p.logger.Info("mp4 processing started")
+	// TODO This approach reads whole file into memory, should use lazy read in the future
 	mF, err := mp4ff.DecodeFile(r)
 	if err != nil {
 		return fmt.Errorf("cannot decode mp4 from reader: %w", err)

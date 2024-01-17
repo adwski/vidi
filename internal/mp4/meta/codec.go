@@ -16,7 +16,7 @@ type Codec struct {
 }
 
 // NewCodecFromSTSD retrieves codec info from track's STSD box
-// in the format suited for DASH StaticMPD schema.
+// in the format suited for DASH MPD schema.
 func NewCodecFromSTSD(stsd *mp4ff.StsdBox) (*Codec, error) {
 	switch {
 	case stsd.AvcX != nil:

@@ -13,6 +13,7 @@ const (
 	defaultSegmentDuration = time.Second
 )
 
+// Dump prints out codec info and segmentation patter for mp4 file.
 func Dump(path string, segDuration time.Duration) {
 	segmentDuration := segDuration
 	if segDuration < defaultSegmentDuration {

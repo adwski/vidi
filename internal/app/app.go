@@ -43,6 +43,7 @@ type Closer interface {
 
 type Initializer func(context.Context) ([]Runner, []Closer, bool)
 
+// App is a common skeleton for daemon application.
 type App struct {
 	defaultLogger *zap.Logger
 	logger        *zap.Logger

@@ -13,6 +13,10 @@ const (
 	defaultEventChannelLen = 100
 )
 
+// Notificator is asynchronous Video API notification service.
+// It takes events and calls Video API in separate goroutine.
+//
+// TODO In the future could be replaced with actual message queue.
 type Notificator struct {
 	c      *client.Client
 	logger *zap.Logger

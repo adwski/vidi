@@ -8,6 +8,7 @@ const (
 	KindUpdateStatusAndLocation
 )
 
+// Event is a Video API notification event.
 type Event struct {
 	Video model.Video
 	Kind  int

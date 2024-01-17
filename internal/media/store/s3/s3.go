@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Store is media store that uses s3 compatible storage.
 type Store struct {
 	logger *zap.Logger
 	client *minio.Client

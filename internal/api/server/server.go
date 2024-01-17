@@ -14,6 +14,7 @@ const (
 	defaultShutdownTimeout = 10 * time.Second
 )
 
+// Server is a runnable http server designed to be used with API services.
 type Server struct {
 	logger *zap.Logger
 	srv    *http.Server

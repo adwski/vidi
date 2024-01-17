@@ -13,6 +13,7 @@ const (
 	defaultDirPermissions  = 0700
 )
 
+// Store is media store that uses file system.
 type Store struct {
 	inputPathPrefix string
 	outPathPrefix   string

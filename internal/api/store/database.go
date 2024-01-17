@@ -6,6 +6,7 @@ import (
 )
 
 // Database is a relational database storage type.
+// This is a common skeleton and is used by API storages.
 type Database struct {
 	pool *pgxpool.Pool
 	log  *zap.Logger

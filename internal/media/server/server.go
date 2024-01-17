@@ -15,6 +15,7 @@ const (
 	defaultShutdownTimeout = 15 * time.Second
 )
 
+// Server is a runnable fasthttp server designed to be used with media services.
 type Server struct {
 	logger *zap.Logger
 	srv    *fasthttp.Server

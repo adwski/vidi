@@ -18,6 +18,8 @@ const (
 	paramNameLocation = "location"
 )
 
+// Client is a Video API service-side client.
+// It is used as a component in media services.
 type Client struct {
 	c        *resty.Client
 	logger   *zap.Logger

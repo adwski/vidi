@@ -22,6 +22,8 @@ type Store interface {
 	Get(ctx context.Context, u *model.User) error
 }
 
+// Service is a user service that provides
+// user registration in authentication.
 type Service struct {
 	*echo.Echo
 	auth   *auth.Auth

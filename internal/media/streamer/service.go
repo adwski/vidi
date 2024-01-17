@@ -29,6 +29,10 @@ var (
 	objTypeMPD     = []byte(".mpd")
 )
 
+// Service is a streaming service. It implements fasthttp handler that
+// serves MPEG-DASH segments.
+// Segments are taken from media store.
+// Every request is also checked for valid "watch"-session.
 type Service struct {
 	logger       *zap.Logger
 	sessS        *sessionStore.Store
@@ -112,6 +116,7 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 	// Request is valid and session exists
 	// Proceed with segment handling
 	// --------------------------------------------------
+	// Get segment reader
 	rc, size, errS3 := svc.mediaS.Get(ctx, svc.getSegmentName(sess, path))
 	if errS3 != nil {
 		svc.logger.Error("error while retrieving segment", zap.Error(errS3))
@@ -126,10 +131,14 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 		zap.Int64("size", size),
 		zap.String("type", cType))
 
+	// --------------------------------------------------
+	// Set headers and body
+	// --------------------------------------------------
 	if svc.cors != nil {
 		ctx.Response.Header.Set("Access-Control-Allow-Origin", svc.cors.AllowOrigin)
 	}
 	ctx.Response.Header.Set("Content-Type", cType)
+	// Set body reader, fasthttp will handle the rest
 	ctx.SetBodyStream(rc, int(size)) // reader will be closed by fasthttp
 }
 
@@ -159,6 +168,8 @@ func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byt
 	case bytes.HasSuffix(path, objTypeMP4): // for init segments
 		cType = contentTypeVideoMP4
 	case bytes.HasSuffix(path, objTypeMPD):
+		// TODO MPD is also served as segment at the moment.
+		//  In the future it should be moved to video api.
 		cType = contentTypeMPD
 	default:
 		return "", nil, "", fmt.Errorf("invalid segment type")

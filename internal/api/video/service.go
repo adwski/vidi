@@ -32,6 +32,16 @@ type Store interface {
 	UpdateStatus(ctx context.Context, vi *model.Video) error
 }
 
+// Service is a Video API service. It has two "realms": user-side API and service-side API.
+//
+// User-side API provides CRUD operations with Video objects for a single user.
+// While service-side API provides handlers for video updates by media processing services.
+//
+// Besides different API handlers they also differs in authentication approach:
+// user-side only checks for valid user id in jwt cookie, while service-API
+// looks up jwt in Bearer token and checks for valid service role.
+//
+// In production environment only user-side API should be exposed to public.
 type Service struct {
 	*echo.Echo
 	logger          *zap.Logger
