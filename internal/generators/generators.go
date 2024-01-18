@@ -25,3 +25,19 @@ func (u *ID) Get() (string, error) {
 	}
 	return base64.RawURLEncoding.EncodeToString(uu.Bytes()), nil
 }
+
+func (u *ID) GetString() (string, error) {
+	uu, err := u.gen.NewV4()
+	if err != nil {
+		return "", fmt.Errorf("cannot generate new uuid: %w", err)
+	}
+	return uu.String(), nil
+}
+
+func (u *ID) GetStringOrPanic() string {
+	uu, err := u.gen.NewV4()
+	if err != nil {
+		panic(err)
+	}
+	return uu.String()
+}
