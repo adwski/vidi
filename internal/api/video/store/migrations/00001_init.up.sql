@@ -10,8 +10,8 @@ CREATE TABLE videos (
                       CONSTRAINT user_uid_not_empty CHECK (user_id != '')
 );
 
-CREATE UNIQUE INDEX videos_id On videos (id);
-CREATE INDEX videos_user_id On videos (user_id);
+CREATE UNIQUE INDEX videos_id ON videos (id);
+CREATE INDEX videos_user_id ON videos (user_id);
 CREATE INDEX videos_status ON videos (status);
 CREATE INDEX videos_created_at ON videos (created_at);
 
