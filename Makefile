@@ -32,3 +32,11 @@ statictest:
 
 test-nginx:
 	docker run --rm -it --entrypoint nginx -v ./docker/compose/nginx.conf:/etc/nginx/nginx.conf nginx:1.25.3-bookworm -t
+
+.PHONY: unittests
+unittests:
+	go test ./... -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov ./...
+
+.PHONY: cover
+cover:
+	go tool cover -html profile.cov -o coverage.html

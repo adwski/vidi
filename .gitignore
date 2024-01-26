@@ -20,6 +20,8 @@ vendor/
 
 # Reports
 report.xml
+profile.cov
+coverage.html
 
 .DS_Store
 

@@ -18,7 +18,6 @@ services:
     environment:
       VIDI_API_PREFIX: /api/users
       VIDI_DATABASE_DSN: postgres://userapi:userapi@postgres:5432/userapi?sslmode=disable
-      VIDI_DATABASE_SALT: q1w2e3r4t5
       VIDI_SERVER_ADDRESS: ":8080"
     expose:
       - 8080
