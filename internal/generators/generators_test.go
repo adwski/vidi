@@ -3,9 +3,10 @@ package generators
 import (
 	"encoding/base64"
 	"errors"
+	"testing"
+
 	"github.com/gofrs/uuid/v5"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestID_Get(t *testing.T) {
