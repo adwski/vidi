@@ -25,7 +25,7 @@ func (svc *Service) getServiceSession(c echo.Context) error {
 		zap.String("name", claims.Name),
 		zap.String("role", claims.Role))
 
-	if claims.Role == auth.RoleNameService {
+	if claims.IsService() {
 		svc.logger.Debug("service auth ok")
 		return nil
 	}

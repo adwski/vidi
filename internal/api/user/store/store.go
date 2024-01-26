@@ -16,8 +16,6 @@ import (
 )
 
 const (
-	saltLen = 10
-
 	bcryptCost = 10
 
 	constrainUID      = "users_id"
@@ -30,19 +28,14 @@ var migrations embed.FS
 type Store struct {
 	*store.Database
 	logger *zap.Logger
-	salt   []byte
 }
 
 type Config struct {
 	Logger *zap.Logger
 	DSN    string
-	Salt   string
 }
 
 func New(ctx context.Context, cfg *Config) (*Store, error) {
-	if len(cfg.Salt) != saltLen {
-		return nil, fmt.Errorf("salt length must be %d", saltLen)
-	}
 	logger := cfg.Logger.With(zap.String("component", "database"))
 	s, err := store.New(ctx, &store.Config{
 		Logger:        logger,
@@ -56,7 +49,6 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 	return &Store{
 		Database: s,
 		logger:   logger,
-		salt:     []byte(cfg.Salt),
 	}, nil
 }
 
@@ -111,16 +103,8 @@ func handleDBErr(err error) error {
 	return fmt.Errorf("postgress error: %w", pgErr)
 }
 
-// salted prepends statically configured string to password.
-func (s *Store) salted(pwd string) []byte {
-	// TODO I dunno if manual salting is helping anything here
-	//	 because bcrypt also uses random salt by itself
-	//	 and we can't reproduce same hash anyway.
-	return append(s.salt, []byte(pwd)...)
-}
-
 func (s *Store) hashPwd(pwd string) (string, error) {
-	b, err := bcrypt.GenerateFromPassword(s.salted(pwd), bcryptCost)
+	b, err := bcrypt.GenerateFromPassword([]byte(pwd), bcryptCost)
 	if err != nil {
 		return "", fmt.Errorf("cannot hash password: %w", err)
 	}
@@ -129,7 +113,7 @@ func (s *Store) hashPwd(pwd string) (string, error) {
 
 // compare does 'special' bcrypt-comparison of hashes since we cannot compare them directly.
 func (s *Store) compare(hash, pwd string) error {
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), s.salted(pwd)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pwd)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return model.ErrIncorrectCredentials
 		}

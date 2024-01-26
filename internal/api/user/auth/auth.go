@@ -19,9 +19,9 @@ const (
 
 	jwtCookieName = "vidiSessID"
 
-	SessionContextKey = "vUser"
+	sessionContextKey = "vUser"
 
-	RoleNameService = "service"
+	roleNameService = "service"
 )
 
 // Auth us an authenticator that can
@@ -62,6 +62,10 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+func (c *Claims) IsService() bool {
+	return c.Role == roleNameService
+}
+
 func (a *Auth) expirationTime() time.Time {
 	return time.Now().Add(a.expiration)
 }
@@ -85,7 +89,7 @@ func (a *Auth) NewTokenForService(name string) (string, error) {
 	claims := &Claims{
 		UserID: fmt.Sprintf("svc-%s", id),
 		Name:   name,
-		Role:   RoleNameService,
+		Role:   roleNameService,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(a.expirationTime()),
 		},
@@ -105,7 +109,7 @@ func (a *Auth) makeSignedJwt(claims *Claims) (string, error) {
 func (a *Auth) MiddlewareUser() echo.MiddlewareFunc {
 	return echojwt.WithConfig(echojwt.Config{
 		ContinueOnIgnoredError: false,
-		ContextKey:             SessionContextKey,
+		ContextKey:             sessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
 		TokenLookup:            "cookie:" + jwtCookieName,
@@ -118,7 +122,7 @@ func (a *Auth) MiddlewareUser() echo.MiddlewareFunc {
 func (a *Auth) MiddlewareService() echo.MiddlewareFunc {
 	return echojwt.WithConfig(echojwt.Config{
 		ContinueOnIgnoredError: false,
-		ContextKey:             SessionContextKey,
+		ContextKey:             sessionContextKey,
 		SigningKey:             a.secret,
 		SigningMethod:          echojwt.AlgorithmHS256,
 		TokenLookup:            "header:Authorization:Bearer ", // space is important!
@@ -129,7 +133,7 @@ func (a *Auth) MiddlewareService() echo.MiddlewareFunc {
 }
 
 func GetClaimFromContext(c echo.Context) (*Claims, error) {
-	token, ok := c.Get(SessionContextKey).(*jwt.Token)
+	token, ok := c.Get(sessionContextKey).(*jwt.Token)
 	if !ok || token == nil {
 		return nil, errors.New("cannot get jwt token from session context")
 	}

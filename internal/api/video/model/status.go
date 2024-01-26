@@ -8,9 +8,8 @@ import (
 
 // Video statuses.
 // TODO: May be transitive statuses are redundant?
-// TODO: How these statuses will map to DB enums? (or don't use enums may be?)
 const (
-	VideoStatusError = iota - 1
+	VideoStatusError Status = iota - 1
 	VideoStatusCreated
 	VideoStatusUploading
 	VideoStatusUploaded

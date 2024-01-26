@@ -30,7 +30,6 @@ func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) 
 	storeCfg := &store.Config{
 		Logger: logger,
 		DSN:    v.GetURL("database.dsn"),
-		Salt:   v.GetString("database.salt"),
 	}
 	svcCfg := &user.ServiceConfig{
 		Logger:    logger,

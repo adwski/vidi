@@ -10,8 +10,8 @@ CREATE TABLE users (
                       CONSTRAINT hash_not_empty CHECK (hash != '')
 );
 
-CREATE UNIQUE INDEX users_id On users (id);
-CREATE UNIQUE INDEX users_name On users (name);
+CREATE UNIQUE INDEX users_id ON users (id);
+CREATE UNIQUE INDEX users_name ON users (name);
 CREATE INDEX users_created_at ON users (created_at);
 
 COMMIT;

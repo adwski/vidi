@@ -180,7 +180,6 @@ func (app *App) setConfigDefaults() {
 	v.SetDefault("api.prefix", "/api")
 	// DB
 	v.SetDefault("database.dsn", "postgres://postgres:postgres@localhost:5432/postgres")
-	v.SetDefault("database.salt", "changeMe")
 	// Processor
 	v.SetDefault("processor.segment_duration", defaultSegmentDuration)
 	v.SetDefault("processor.video_check_period", defaultVideoCheckInterval)

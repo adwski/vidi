@@ -11,6 +11,8 @@ func GetEchoWithDefaultMiddleware() *echo.Echo {
 
 	gen := generators.NewID()
 
+	e.Use(middleware.Recover())
+
 	e.Use(middleware.RequestIDWithConfig(middleware.RequestIDConfig{
 		Skipper:      middleware.DefaultSkipper,
 		Generator:    gen.GetStringOrPanic,
@@ -26,6 +28,5 @@ func GetEchoWithDefaultMiddleware() *echo.Echo {
 		`"status":${status},"error":"${error}","latency":"${latency_human}"` +
 		`,"bytes_in":${bytes_in},"bytes_out":${bytes_out}}` + "\n"
 	e.Use(middleware.LoggerWithConfig(loggerCfg))
-	e.Use(middleware.Recover())
 	return e
 }
