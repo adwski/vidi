@@ -54,6 +54,7 @@ func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error)
 	defer wg.Done()
 	if s.srv.Handler == nil {
 		errc <- errors.New("server handler is not set")
+		return
 	}
 
 	errSrv := make(chan error)

@@ -4,6 +4,16 @@ docker-dev:
 	docker compose up -d
 	docker ps
 
+docker-infra:
+	cd docker/compose ;\
+	docker compose -f docker-compose.infra.yml up -d
+	docker ps
+
+docker-infra-clean:
+	cd docker/compose ;\
+	docker compose -f docker-compose.infra.yml down -v
+	docker ps
+
 docker-dev-build:
 	cd docker/compose ;\
 	docker compose up -d --build
@@ -36,7 +46,16 @@ test-nginx:
 .PHONY: unittests
 unittests:
 	go test ./... -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov ./...
+	go tool cover -func profile.cov
 
 .PHONY: cover
 cover:
 	go tool cover -html profile.cov -o coverage.html
+
+
+.PHONY: test-all
+test-all: docker-infra
+	go test -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov --tags e2e ./...
+	go tool cover -func profile.cov
+	$(MAKE) cover
+	$(MAKE) docker-infra-clean

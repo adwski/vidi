@@ -8,18 +8,6 @@ x-logging: &logging
     max-file: "5"
 
 services:
-  nginx:
-    logging: *logging
-    restart: unless-stopped
-    image: nginx:1.25.3-bookworm
-    volumes:
-      - "./nginx.conf:/etc/nginx/nginx.conf:ro"
-      - "./player:/var/www/player:ro"
-    ports:
-      - "8080:80"
-    networks:
-      - vidi
-
   minio:
     logging: *logging
     restart: unless-stopped

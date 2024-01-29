@@ -19,6 +19,8 @@ import (
 const (
 	envPrefix = "VIDI"
 
+	defaultConfigName = "config"
+
 	defaultReadHeaderTimeout = time.Second
 	defaultReadTimeout       = 5 * time.Second
 	defaultWriteTimeout      = 5 * time.Second
@@ -68,10 +70,14 @@ func (app *App) Viper() *config.ViperEC {
 }
 
 func (app *App) Run() int {
+	return app.RunWithContextAndConfig(context.Background(), defaultConfigName)
+}
+
+func (app *App) RunWithContextAndConfig(ctx context.Context, configFileName string) int {
 	// --------------------------------------------------
 	// configure
 	// --------------------------------------------------
-	code := app.configure()
+	code := app.configure(configFileName)
 	if code != 0 {
 		return code
 	}
@@ -79,11 +85,11 @@ func (app *App) Run() int {
 	// --------------------------------------------------
 	// start app
 	// --------------------------------------------------
-	return app.run()
+	return app.run(ctx)
 }
 
-func (app *App) run() int {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+func (app *App) run(ctx context.Context) int {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
 	runners, closers, ok := app.initializer(ctx)
@@ -113,11 +119,11 @@ func (app *App) run() int {
 	return 0
 }
 
-func (app *App) configure() int {
+func (app *App) configure(configName string) int {
 	// Set defaults
 	app.setConfigDefaults()
 	// Try to read the config ignoring any errors
-	err := app.readConfig()
+	err := app.readConfig(configName)
 	if err != nil {
 		app.defaultLogger.Error("config error", zap.Error(err))
 		return 1
@@ -131,8 +137,8 @@ func (app *App) configure() int {
 	return 0
 }
 
-func (app *App) readConfig() error {
-	app.viper.SetConfigName("config")
+func (app *App) readConfig(name string) error {
+	app.viper.SetConfigName(name)
 	app.viper.SetConfigType("yaml")
 	app.viper.AddConfigPath(".")
 	if err := app.viper.ReadInConfig(); err != nil {

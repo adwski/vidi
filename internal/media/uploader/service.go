@@ -132,6 +132,18 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 		Kind: event.KindUpdateStatus,
 	})
 
+	if err = svc.pipeBodyToS3(ctx, sess, size); err != nil {
+		ctx.Error(internalError, fasthttp.StatusInternalServerError)
+		return
+	}
+	ctx.SetStatusCode(fasthttp.StatusNoContent)
+	// --------------------------------------------------
+	// Postprocessing phase
+	// --------------------------------------------------
+	go svc.postProcess(sess)
+}
+
+func (svc *Service) pipeBodyToS3(ctx *fasthttp.RequestCtx, sess *session.Session, size int) error {
 	defer func() {
 		if errC := ctx.Request.CloseBodyStream(); errC != nil {
 			svc.logger.Error("error while closing body stream", zap.Error(errC))
@@ -141,15 +153,15 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	// Manually pipe data streams because there's no native way
 	// to do it using fasthttp and s3 client together.
 	var (
-		r, w            = io.Pipe()
-		done            = make(chan struct{})
-		errPut, errBody error
+		r, w                        = io.Pipe()
+		done                        = make(chan struct{})
+		errPut, errBody, errR, errW error
 	)
 	go func() {
 		if errPut = svc.mediaS.Put(ctx, svc.getUploadArtifactName(sess), r, int64(size)); errPut != nil {
 			svc.logger.Error("error while uploading artifact", zap.Error(errPut))
 		}
-		if errR := r.Close(); errR != nil {
+		if errR = r.Close(); errR != nil {
 			svc.logger.Error("error closing pipe reader", zap.Error(errR))
 		}
 		done <- struct{}{}
@@ -158,22 +170,17 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 		if errBody = ctx.Request.BodyWriteTo(w); errBody != nil {
 			svc.logger.Error("error while reading body", zap.Error(errBody))
 		}
-		if errW := w.Close(); errW != nil {
+		if errW = w.Close(); errW != nil {
 			svc.logger.Error("error closing pipe writer", zap.Error(errW))
 		}
 		done <- struct{}{}
 	}()
 	<-done
 	<-done
-	if errBody != nil || errPut != nil {
-		ctx.Error(internalError, fasthttp.StatusInternalServerError)
-		return
+	if errPut != nil || errBody != nil || errR != nil || errW != nil {
+		return errors.New("pipe error")
 	}
-	ctx.SetStatusCode(fasthttp.StatusNoContent)
-	// --------------------------------------------------
-	// Postprocessing phase
-	// --------------------------------------------------
-	go svc.postProcess(sess)
+	return nil
 }
 
 func (svc *Service) postProcess(sess *session.Session) {

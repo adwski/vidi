@@ -36,11 +36,13 @@ func createServiceToken(name, secret string, expiration time.Duration) {
 	})
 	if err != nil {
 		logger.Error("cannot init authenticator", zap.Error(err))
+		return
 	}
 
 	token, errT := au.NewTokenForService(name)
 	if errT != nil {
 		logger.Error("cannot create token", zap.Error(errT))
+		return
 	}
 	fmt.Println(token)
 }
