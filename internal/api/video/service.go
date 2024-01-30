@@ -24,6 +24,7 @@ import (
 type Store interface {
 	Create(ctx context.Context, vi *model.Video) error
 	Get(ctx context.Context, id string, userID string) (*model.Video, error)
+	GetAll(ctx context.Context, userID string) ([]*model.Video, error)
 	Delete(ctx context.Context, id string, userID string) error
 
 	GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error)
@@ -92,6 +93,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	userAPI := api.Group("/user")
 	userAPI.Use(authenticator.MiddlewareUser())
 	userAPI.GET("/:id", svc.getVideo)
+	userAPI.GET("/", svc.getVideos)
 	userAPI.POST("/", svc.createVideo)
 	userAPI.POST("/:id/watch", svc.watchVideo)
 	userAPI.DELETE("/:id", svc.deleteVideo)

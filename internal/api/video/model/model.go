@@ -19,16 +19,20 @@ type Video struct {
 	Status    Status    `json:"status,omitempty"`
 }
 
-type VideoUpdateRequest struct {
+type UpdateRequest struct {
 	Status   string `json:"status"`
 	Location string `json:"location"`
 }
 
-type VideoResponse struct {
+type Response struct {
 	ID        string `json:"id"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
 	UploadURL string `json:"upload_url,omitempty"`
+}
+
+func (r *Response) GetStatus() (Status, error) {
+	return GetStatusFromName(r.Status)
 }
 
 type ListRequest struct {
@@ -45,34 +49,35 @@ type WatchResponse struct {
 
 func NewVideo(id, userID string) *Video {
 	return &Video{
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().In(time.UTC),
 		ID:        id,
 		UserID:    userID,
-		Status:    VideoStatusCreated,
+		Status:    StatusCreated,
 	}
 }
 
-func (v *Video) Response() *VideoResponse {
-	return &VideoResponse{
+func (v *Video) Response() *Response {
+	return &Response{
 		ID:        v.ID,
 		Status:    v.Status.String(),
-		CreatedAt: v.CreatedAt.String(),
+		CreatedAt: v.CreatedAt.Format(time.RFC3339),
 	}
 }
 
-func (v *Video) UploadResponse(url string) *VideoResponse {
-	return &VideoResponse{
-		ID:        v.ID,
-		Status:    v.Status.String(),
-		CreatedAt: v.CreatedAt.String(),
-		UploadURL: url,
-	}
+func (v *Video) UploadResponse(url string) *Response {
+	resp := v.Response()
+	resp.UploadURL = url
+	return resp
 }
 
 func (v *Video) IsReady() bool {
-	return v.Status == VideoStatusReady
+	return v.Status == StatusReady
+}
+
+func (v *Video) IsCreated() bool {
+	return v.Status == StatusCreated
 }
 
 func (v *Video) IsErrored() bool {
-	return v.Status == VideoStatusError
+	return v.Status == StatusError
 }

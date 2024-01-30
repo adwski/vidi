@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/adwski/vidi/internal/api/video/client"
-	"github.com/adwski/vidi/internal/api/video/model"
+	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"
 	"go.uber.org/zap"
@@ -95,38 +95,38 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 
 	p.logger.Info("got videos for processing", zap.Int("count", len(videos)))
 
-	for _, video := range videos {
+	for _, v := range videos {
 		p.notificator.Send(&event.Event{
-			Video: model.Video{
-				ID:     video.ID,
-				Status: model.VideoStatusProcessing,
+			Video: video.Video{
+				ID:     v.ID,
+				Status: video.StatusProcessing,
 			},
 			Kind: event.KindUpdateStatus,
 		})
-		if err = p.processVideo(ctx, video); err != nil {
+		if err = p.processVideo(ctx, v); err != nil {
 			// TODO In the future we should distinguish between errors caused by video content
 			//  and any other error. For example i/o errors are related to other failures
 			//  and in such cases video processing could be retried later. (So we need retry mechanism).
 			p.notificator.Send(&event.Event{
-				Video: model.Video{
-					ID:     video.ID,
-					Status: model.VideoStatusError,
+				Video: video.Video{
+					ID:     v.ID,
+					Status: video.StatusError,
 				},
 				Kind: event.KindUpdateStatus,
 			})
 			p.logger.Error("error while processing video",
-				zap.String("id", video.ID),
-				zap.String("location", video.Location),
+				zap.String("id", v.ID),
+				zap.String("location", v.Location),
 				zap.Error(err))
 			continue
 		}
 		p.logger.Debug("video processed successfully",
-			zap.String("id", video.ID),
-			zap.String("location", video.Location))
+			zap.String("id", v.ID),
+			zap.String("location", v.Location))
 		p.notificator.Send(&event.Event{
-			Video: model.Video{
-				ID:     video.ID,
-				Status: model.VideoStatusReady,
+			Video: video.Video{
+				ID:     v.ID,
+				Status: video.StatusReady,
 			},
 			Kind: event.KindUpdateStatus,
 		})
@@ -134,8 +134,8 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 	p.logger.Debug("processing done")
 }
 
-func (p *Processor) processVideo(ctx context.Context, video *model.Video) error {
-	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, video.Location, defaultMediaStoreArtifactName)
+func (p *Processor) processVideo(ctx context.Context, v *video.Video) error {
+	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, v.Location, defaultMediaStoreArtifactName)
 	rc, _, err := p.st.Get(ctx, fullInputPath)
 	if err != nil {
 		return fmt.Errorf("cannot get input file: %w", err)
@@ -145,7 +145,7 @@ func (p *Processor) processVideo(ctx context.Context, video *model.Video) error 
 			p.logger.Error("error closing storage reader", zap.Error(errC))
 		}
 	}()
-	outLocation := fmt.Sprintf("%s/%s", p.outputPathPrefix, video.Location)
+	outLocation := fmt.Sprintf("%s/%s", p.outputPathPrefix, v.Location)
 	if err = p.ProcessFileFromReader(ctx, rc, outLocation); err != nil {
 		return fmt.Errorf("error processing file: %w", err)
 	}

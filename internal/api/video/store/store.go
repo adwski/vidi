@@ -60,6 +60,30 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 	return vi, nil
 }
 
+func (s *Store) GetAll(ctx context.Context, userID string) ([]*model.Video, error) {
+	query := `select id, location, status, created_at from videos where user_id = $1`
+	rows, err := s.Pool().Query(ctx, query, userID)
+	if err != nil {
+		err = model.ErrNotFound
+		return nil, err
+	}
+	videos, errR := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Video, error) {
+		var vi model.Video
+		vi.UserID = userID
+		if errS := row.Scan(&vi.ID, &vi.Location, &vi.Status, &vi.CreatedAt); errS != nil {
+			return nil, fmt.Errorf("error while scanning row: %w", errS)
+		}
+		return &vi, nil
+	})
+	if errR != nil {
+		return nil, fmt.Errorf("error while collecting rows: %w", errR)
+	}
+	if len(videos) == 0 {
+		return nil, model.ErrNotFound
+	}
+	return videos, nil
+}
+
 func (s *Store) Delete(ctx context.Context, id, userID string) error {
 	query := `delete from videos where id = $1 and user_id = $2`
 	tag, err := s.Pool().Exec(ctx, query, id, userID)

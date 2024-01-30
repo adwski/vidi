@@ -57,7 +57,7 @@ func (c *Client) GetUploadedVideos(ctx context.Context) ([]*model.Video, error) 
 		SetError(&errResponse).
 		SetResult(&videosResponse).
 		SetBody(&model.ListRequest{
-			Status: model.VideoStatusUploaded,
+			Status: model.StatusUploaded,
 		}).
 		Post(fmt.Sprintf("%s/service/search", c.endpoint))
 	if err != nil {
@@ -84,7 +84,7 @@ func (c *Client) UpdateVideo(videoID, status, location string) error {
 	response, req := c.constructUpdateRequest()
 	spew.Dump(req.Token)
 	resp, err := req.
-		SetBody(&model.VideoUpdateRequest{
+		SetBody(&model.UpdateRequest{
 			Status:   status,
 			Location: location,
 		}).

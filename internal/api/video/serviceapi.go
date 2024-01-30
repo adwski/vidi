@@ -86,7 +86,7 @@ func (svc *Service) updateVideo(c echo.Context) error {
 }
 
 func getVideoFromUpdateRequest(c echo.Context) (*model.Video, error) {
-	var req model.VideoUpdateRequest
+	var req model.UpdateRequest
 	if err := c.Bind(&req); err != nil {
 		return nil, errors.New("invalid params")
 	}

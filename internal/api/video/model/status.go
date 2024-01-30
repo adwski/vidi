@@ -9,23 +9,23 @@ import (
 // Video statuses.
 // TODO: May be transitive statuses are redundant?
 const (
-	VideoStatusError Status = iota - 1
-	VideoStatusCreated
-	VideoStatusUploading
-	VideoStatusUploaded
-	VideoStatusProcessing
-	VideoStatusReady
+	StatusError Status = iota - 1
+	StatusCreated
+	StatusUploading
+	StatusUploaded
+	StatusProcessing
+	StatusReady
 )
 
 type Status int
 
 var statusNames = map[Status]string{
-	VideoStatusError:      "error",
-	VideoStatusCreated:    "created",
-	VideoStatusUploading:  "uploading",
-	VideoStatusUploaded:   "uploaded",
-	VideoStatusProcessing: "processing",
-	VideoStatusReady:      "ready",
+	StatusError:      "error",
+	StatusCreated:    "created",
+	StatusUploading:  "uploading",
+	StatusUploaded:   "uploaded",
+	StatusProcessing: "processing",
+	StatusReady:      "ready",
 }
 
 var statusFromName = make(map[string]Status)

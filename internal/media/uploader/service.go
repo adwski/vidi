@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/adwski/vidi/internal/api/video/model"
+	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"
 	"github.com/adwski/vidi/internal/media/store/s3"
@@ -125,9 +125,9 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	// Proceed with upload
 	// --------------------------------------------------
 	svc.notificator.Send(&event.Event{ // send uploading event
-		Video: model.Video{
+		Video: video.Video{
 			ID:     sess.VideoID,
-			Status: model.VideoStatusUploading,
+			Status: video.StatusUploading,
 		},
 		Kind: event.KindUpdateStatus,
 	})
@@ -188,9 +188,9 @@ func (svc *Service) postProcess(sess *session.Session) {
 	// TODO Should we also send error status event in case of upload error
 	//      or allow user to retry upload?
 	svc.notificator.Send(&event.Event{
-		Video: model.Video{
+		Video: video.Video{
 			ID:       sess.VideoID,
-			Status:   model.VideoStatusUploaded,
+			Status:   video.StatusUploaded,
 			Location: sess.ID,
 		},
 		Kind: event.KindUpdateStatusAndLocation,

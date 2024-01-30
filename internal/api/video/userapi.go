@@ -42,6 +42,22 @@ func (svc *Service) getVideo(c echo.Context) error {
 	return svc.erroredResponse(c, errV)
 }
 
+func (svc *Service) getVideos(c echo.Context) error {
+	u, err, ok := svc.getUserSession(c)
+	if !ok {
+		return err
+	}
+	videos, errV := svc.s.GetAll(c.Request().Context(), u.ID)
+	if errV != nil {
+		return svc.erroredResponse(c, errV)
+	}
+	resp := make([]*model.Response, 0, len(videos))
+	for _, v := range videos {
+		resp = append(resp, v.Response())
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
 func (svc *Service) watchVideo(c echo.Context) error {
 	u, err, ok := svc.getUserSession(c)
 	if !ok {
