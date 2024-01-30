@@ -66,10 +66,6 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	return svc, nil
 }
 
-func (svc *Service) Handler() http.Handler {
-	return svc.Echo
-}
-
 func (svc *Service) register(c echo.Context) error {
 	req, err := getUserRequest(c)
 	if err != nil {

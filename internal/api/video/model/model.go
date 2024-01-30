@@ -74,10 +74,6 @@ func (v *Video) IsReady() bool {
 	return v.Status == StatusReady
 }
 
-func (v *Video) IsCreated() bool {
-	return v.Status == StatusCreated
-}
-
 func (v *Video) IsErrored() bool {
 	return v.Status == StatusError
 }

@@ -110,10 +110,6 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	return svc, nil
 }
 
-func (svc *Service) Handler() http.Handler {
-	return svc.Echo
-}
-
 func (svc *Service) getUploadURL(sess *session.Session) string {
 	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sess.ID)
 }

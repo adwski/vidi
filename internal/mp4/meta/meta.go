@@ -8,18 +8,6 @@ type Meta struct {
 	Duration time.Duration
 }
 
-func (mc *Meta) TracksInfo() []map[string]string {
-	out := make([]map[string]string, len(mc.Tracks))
-	for i, track := range mc.Tracks {
-		out[i] = map[string]string{
-			"name":  track.Name,
-			"type":  track.MimeType,
-			"codec": track.Codec.Profile,
-		}
-	}
-	return out
-}
-
 // Track is a media file video or audio track.
 type Track struct {
 	Codec     *Codec

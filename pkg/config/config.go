@@ -34,14 +34,6 @@ func (vec *ViperEC) GetDuration(key string) time.Duration {
 	return d
 }
 
-func (vec *ViperEC) GetStringAllowEmpty(key string) string {
-	s, err := cast.ToStringE(vec.Get(key))
-	if err != nil {
-		vec.errs[key] = err
-	}
-	return s
-}
-
 func (vec *ViperEC) GetBool(key string) bool {
 	s, err := cast.ToBoolE(vec.Get(key))
 	if err != nil {

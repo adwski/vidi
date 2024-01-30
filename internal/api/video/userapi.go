@@ -160,5 +160,8 @@ func (svc *Service) storeSessionAndReturnURL(
 			zap.Error(errSess))
 		return nil, false
 	}
+	svc.logger.Debug("session stored",
+		zap.String("type", sessStore.Name()),
+		zap.String("id", sess.ID))
 	return sess, true
 }

@@ -28,23 +28,6 @@ func (s *Store) Put(ctx context.Context, name string, r io.Reader, size int64) e
 	return nil
 }
 
-func (s *Store) GetBytes(ctx context.Context, name string) ([]byte, error) {
-	rc, size, err := s.Get(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	b := make([]byte, size)
-	_, errR := rc.Read(b)
-	if errR != nil {
-		return nil, fmt.Errorf("cannot read object bytes: %w", errR)
-	}
-	s.logger.Debug("object retrieved",
-		zap.String("location", name),
-		zap.String("bucket", s.bucket),
-		zap.Int64("size", size))
-	return b, nil
-}
-
 func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
