@@ -55,11 +55,6 @@ func (s *Status) UnmarshalJSON(b []byte) (err error) {
 	switch value := v.(type) {
 	case string:
 		*s, err = GetStatusFromName(value)
-	case int:
-		*s = Status(value)
-		if s.String() == "" {
-			err = fmt.Errorf("unknown status num: %v", value)
-		}
 	case float64:
 		*s = Status(int(value))
 		if s.String() == "" {

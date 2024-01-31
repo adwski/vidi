@@ -35,24 +35,6 @@ func (svc *Service) getServiceSession(c echo.Context) error {
 	})
 }
 
-func (svc *Service) updateVideoLocation(c echo.Context) error {
-	if err := svc.getServiceSession(c); err != nil {
-		return err
-	}
-	id := c.Param("id")
-	location := c.Param("location")
-	if len(location) == 0 {
-		return c.JSON(http.StatusBadRequest, &common.Response{
-			Error: "location cannot be empty",
-		})
-	}
-	err := svc.s.UpdateLocation(c.Request().Context(), &model.Video{
-		ID:       id,
-		Location: location,
-	})
-	return svc.commonResponse(c, err)
-}
-
 func (svc *Service) updateVideoStatus(c echo.Context) error {
 	if err := svc.getServiceSession(c); err != nil {
 		return err

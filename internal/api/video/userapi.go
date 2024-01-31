@@ -5,13 +5,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/adwski/vidi/internal/session"
-	sessionStore "github.com/adwski/vidi/internal/session/store"
-
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video/model"
+	"github.com/adwski/vidi/internal/session"
+	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
@@ -69,14 +68,14 @@ func (svc *Service) watchVideo(c echo.Context) error {
 	}
 
 	if video.IsErrored() {
-		return c.JSON(http.StatusOK, &common.Response{
+		return c.JSON(http.StatusMethodNotAllowed, &common.Response{
 			Error: "video cannot be watched",
 		})
 	}
 
 	if !video.IsReady() {
-		return c.JSON(http.StatusOK, &common.Response{
-			Message: "video is not ready",
+		return c.JSON(http.StatusMethodNotAllowed, &common.Response{
+			Error: "video is not ready",
 		})
 	}
 
@@ -110,7 +109,7 @@ func (svc *Service) createVideo(c echo.Context) error {
 	newID, errID := svc.idGen.Get()
 	if errID != nil {
 		svc.logger.Error("cannot generate new video id", zap.Error(errID))
-		return c.JSON(http.StatusNotFound, &common.Response{
+		return c.JSON(http.StatusInternalServerError, &common.Response{
 			Error: common.InternalError,
 		})
 	}

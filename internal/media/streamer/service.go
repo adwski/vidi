@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/adwski/vidi/internal/media/store"
+
 	"github.com/adwski/vidi/internal/media/store/s3"
 	"github.com/adwski/vidi/internal/session"
 	sessionStore "github.com/adwski/vidi/internal/session/store"
@@ -108,7 +110,7 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		svc.logger.Debug("cannot get session", zap.Error(errSess))
-		ctx.Error(internalError, fasthttp.StatusNotFound)
+		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -119,6 +121,10 @@ func (svc *Service) handleWatch(ctx *fasthttp.RequestCtx) {
 	// Get segment reader
 	rc, size, errS3 := svc.mediaS.Get(ctx, svc.getSegmentName(sess, path))
 	if errS3 != nil {
+		if errors.Is(errS3, store.ErrNotFount) {
+			ctx.Error(notFoundError, fasthttp.StatusNotFound)
+			return
+		}
 		svc.logger.Error("error while retrieving segment", zap.Error(errS3))
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return

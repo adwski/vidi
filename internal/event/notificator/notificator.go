@@ -71,8 +71,6 @@ func (n *Notificator) processEvent(ev *event.Event) {
 	switch ev.Kind {
 	case event.KindUpdateStatus:
 		err = n.c.UpdateVideoStatus(ev.Video.ID, ev.Video.Status.String())
-	case event.KindUpdateLocation:
-		err = n.c.UpdateVideoLocation(ev.Video.ID, ev.Video.Location)
 	case event.KindUpdateStatusAndLocation:
 		err = n.c.UpdateVideo(ev.Video.ID, ev.Video.Status.String(), ev.Video.Location)
 	default:

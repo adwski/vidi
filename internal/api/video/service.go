@@ -29,7 +29,6 @@ type Store interface {
 
 	GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error)
 	Update(ctx context.Context, vi *model.Video) error
-	UpdateLocation(ctx context.Context, vi *model.Video) error
 	UpdateStatus(ctx context.Context, vi *model.Video) error
 }
 
@@ -101,7 +100,6 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	// Service zone
 	serviceAPI := api.Group("/service")
 	serviceAPI.Use(authenticator.MiddlewareService())
-	serviceAPI.PUT("/:id/location/:location", svc.updateVideoLocation)
 	serviceAPI.PUT("/:id/status/:status", svc.updateVideoStatus)
 	serviceAPI.PUT("/:id", svc.updateVideo)
 	serviceAPI.POST("/search", svc.listVideos)

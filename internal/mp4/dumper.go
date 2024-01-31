@@ -17,14 +17,13 @@ const (
 
 // Dump prints out codec info and segmentation patter for mp4 file.
 func Dump(path string, segDuration time.Duration) {
+	dump(os.Stdout, path, segDuration)
+}
+func dump(w io.Writer, path string, segDuration time.Duration) {
 	segmentDuration := segDuration
 	if segDuration < defaultSegmentDuration {
 		segmentDuration = defaultSegmentDuration
 	}
-
-	dump(os.Stdout, path, segmentDuration)
-}
-func dump(w io.Writer, path string, segmentDuration time.Duration) {
 	mF, err := mp4ff.ReadMP4File(path)
 	if err != nil {
 		fmt.Printf("cannot open mp4 file: %v\n", err)

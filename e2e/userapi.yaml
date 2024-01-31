@@ -5,4 +5,4 @@ server:
 api:
   prefix: /api/user
 database:
-  dsn: postgres://userapi:userapi@localhost:5400/userapi?sslmode=disable
+  dsn: postgres://userapi:userapi@localhost:5432/userapi?sslmode=disable

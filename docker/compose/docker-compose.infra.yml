@@ -36,7 +36,7 @@ services:
       - "vidi-db:/var/lib/postgresql/data"
       - "./initdb:/docker-entrypoint-initdb.d:ro"
     ports:
-      - "5400:5432"
+      - "5432:5432"
     networks:
       - vidi
 

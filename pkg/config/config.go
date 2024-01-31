@@ -27,6 +27,7 @@ func (vec *ViperEC) GetDuration(key string) time.Duration {
 	d, err := cast.ToDurationE(vec.Get(key))
 	if err != nil {
 		vec.errs[key] = err
+		return 0
 	}
 	if d == 0 {
 		vec.errs[key] = errors.New("cannot be zero")

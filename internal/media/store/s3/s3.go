@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+
+	"github.com/adwski/vidi/internal/media/store"
 
 	"github.com/minio/minio-go/v7"
 	"go.uber.org/zap"
@@ -35,6 +38,10 @@ func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, err
 	}
 	stat, errS := obj.Stat()
 	if errS != nil {
+		er := minio.ToErrorResponse(errS)
+		if er.StatusCode == http.StatusNotFound {
+			return nil, 0, store.ErrNotFount
+		}
 		return nil, 0, fmt.Errorf("cannot get object stats: %w", errS)
 	}
 	return obj, stat.Size, nil

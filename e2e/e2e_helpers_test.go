@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/Eyevinn/dash-mpd/mpd"
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/model"
@@ -35,6 +37,16 @@ func userRegister(t *testing.T, user *model.UserRequest) *http.Cookie {
 	return getCookieWithToken(t, resp.Cookies())
 }
 
+func userRegisterFail(t *testing.T, user any, code int) {
+	t.Helper()
+
+	resp, body := makeCommonRequest(t, endpointUserRegister, user)
+	require.True(t, resp.IsError())
+	require.NotEmpty(t, body.Error)
+	require.Empty(t, body.Message)
+	require.Equal(t, code, resp.StatusCode())
+}
+
 func userLogin(t *testing.T, user *model.UserRequest) *http.Cookie {
 	t.Helper()
 
@@ -45,13 +57,14 @@ func userLogin(t *testing.T, user *model.UserRequest) *http.Cookie {
 	return getCookieWithToken(t, resp.Cookies())
 }
 
-func userLoginFail(t *testing.T, user *model.UserRequest) {
+func userLoginFail(t *testing.T, user any, code int) {
 	t.Helper()
 
 	resp, body := makeCommonRequest(t, endpointUserLogin, user)
 	require.Truef(t, resp.IsError(), "user should not exist")
 	require.Empty(t, body.Message)
 	require.NotEmpty(t, body.Error)
+	require.Equal(t, code, resp.StatusCode())
 }
 
 func makeCommonRequest(t *testing.T, url string, reqBody interface{}) (*resty.Response, *common.Response) {
@@ -105,6 +118,22 @@ func videoWatch(t *testing.T, userCookie *http.Cookie, v *video.Response) *video
 	return &watchBody
 }
 
+func videoWatchFail(t *testing.T, userCookie *http.Cookie, v *video.Response, code int) {
+	t.Helper()
+
+	var (
+		errBody common.Response
+	)
+	resp, err := resty.New().R().SetHeader("Accept", "application/json").
+		SetError(&errBody).
+		SetCookie(userCookie).
+		Post(endpointVideo + v.ID + "/watch")
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, code, resp.StatusCode())
+	require.NotEmpty(t, errBody.Error)
+}
+
 func videoUpload(t *testing.T, url string) {
 	t.Helper()
 
@@ -117,6 +146,34 @@ func videoUpload(t *testing.T, url string) {
 	require.NoError(t, err)
 	require.True(t, resp.IsSuccess())
 	require.Equal(t, http.StatusNoContent, resp.StatusCode())
+}
+
+func videoUploadFail(t *testing.T, url string) {
+	t.Helper()
+
+	f, errF := os.Open("../testFiles/test_seq_h264_high.mp4")
+	require.NoError(t, errF)
+
+	resp, err := resty.New().R().
+		SetHeader("Content-Type", "video/mp4").
+		SetBody(f).Post(url)
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode())
+}
+
+func videoUploadFailGet(t *testing.T, url string) {
+	t.Helper()
+
+	f, errF := os.Open("../testFiles/test_seq_h264_high.mp4")
+	require.NoError(t, errF)
+
+	resp, err := resty.New().R().
+		SetHeader("Content-Type", "video/mp4").
+		SetBody(f).Get(url)
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode())
 }
 
 func videoDelete(t *testing.T, userCookie *http.Cookie, id string) {
@@ -155,6 +212,23 @@ func videoGet(t *testing.T, userCookie *http.Cookie, id string) *video.Response 
 	require.NotEmpty(t, videoBody.ID)
 
 	return &videoBody
+}
+
+func videoGetFail(t *testing.T, userCookie *http.Cookie, id string, code int) {
+	t.Helper()
+
+	var (
+		videoBody video.Response
+		errBody   common.Response
+	)
+	resp, err := resty.New().R().SetHeader("Accept", "application/json").
+		SetError(&errBody).
+		SetCookie(userCookie).
+		SetResult(&videoBody).Get(endpointVideo + id)
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, code, resp.StatusCode())
+	// require.NotEmpty(t, errBody.Error)
 }
 
 func videoGetAll(t *testing.T, userCookie *http.Cookie) []*video.Response {
@@ -228,6 +302,26 @@ func watchVideo(t *testing.T, url string) {
 
 	checkStaticMPD(t, vMpd)
 	downloadSegments(t, url)
+
+	downloadSegmentsFail(t, url)
+}
+
+func downloadSegmentsFail(t *testing.T, url string) {
+	t.Helper()
+
+	prefixURL := strings.TrimSuffix(url, "/manifest.mpd")
+
+	prefixURLNoSess := prefixURL[:strings.LastIndexByte(prefixURL, '/')]
+
+	r := resty.New()
+
+	downloadSegmentFail(t, r, prefixURL+"/not-existent.mp4", http.StatusNotFound)
+	downloadSegmentFail(t, r, prefixURLNoSess+"/qweqweqwe/vide1_1.m4s", http.StatusNotFound)
+	downloadSegmentFail(t, r, prefixURLNoSess, http.StatusBadRequest)
+	downloadSegmentFail(t, r, prefixURLNoSess+"/qw/", http.StatusBadRequest)
+	downloadSegmentFail(t, r, prefixURL+"/vide1_init.wrong", http.StatusBadRequest)
+	downloadSegmentFailPost(t, r, prefixURL+"/vide1_init.mp4", http.StatusBadRequest)
+	spew.Dump(prefixURLNoSess)
 }
 
 func downloadSegments(t *testing.T, url string) {
@@ -261,6 +355,24 @@ func downloadSegment(t *testing.T, r *resty.Client, url, contentType string) {
 	require.NotEmpty(t, resp.Body())
 
 	assert.Equal(t, contentType, resp.Header().Get("Content-Type"))
+}
+
+func downloadSegmentFail(t *testing.T, r *resty.Client, url string, code int) {
+	t.Helper()
+
+	resp, err := r.R().Get(url)
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, code, resp.StatusCode())
+}
+
+func downloadSegmentFailPost(t *testing.T, r *resty.Client, url string, code int) {
+	t.Helper()
+
+	resp, err := r.R().Post(url)
+	require.NoError(t, err)
+	require.True(t, resp.IsError())
+	require.Equal(t, code, resp.StatusCode())
 }
 
 func checkStaticMPD(t *testing.T, vMpd *mpd.MPD) {

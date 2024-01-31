@@ -61,11 +61,11 @@ func (s *Store) Get(ctx context.Context, u *model.User) error {
 	if err := s.Pool().QueryRow(ctx, query, u.Name).Scan(&u.ID, &hash); err != nil {
 		return handleDBErr(err)
 	}
-	return s.compare(hash, u.Password)
+	return comparePwd(hash, u.Password)
 }
 
 func (s *Store) Create(ctx context.Context, u *model.User) error {
-	hash, err := s.hashPwd(u.Password)
+	hash, err := hashPwd(u.Password)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func handleDBErr(err error) error {
 	return fmt.Errorf("postgress error: %w", pgErr)
 }
 
-func (s *Store) hashPwd(pwd string) (string, error) {
+func hashPwd(pwd string) (string, error) {
 	b, err := bcrypt.GenerateFromPassword([]byte(pwd), bcryptCost)
 	if err != nil {
 		return "", fmt.Errorf("cannot hash password: %w", err)
@@ -111,13 +111,14 @@ func (s *Store) hashPwd(pwd string) (string, error) {
 	return string(b), nil
 }
 
-// compare does 'special' bcrypt-comparison of hashes since we cannot compare them directly.
-func (s *Store) compare(hash, pwd string) error {
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pwd)); err != nil {
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			return model.ErrIncorrectCredentials
-		}
-		return fmt.Errorf("cannot compare user hash: %w", err)
+// comparePwd does 'special' bcrypt-comparison of hashes since we cannot compare them directly.
+func comparePwd(hash, pwd string) error {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pwd))
+	if err == nil {
+		return nil
 	}
-	return nil
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return model.ErrIncorrectCredentials
+	}
+	return fmt.Errorf("cannot compare user hash: %w", err)
 }

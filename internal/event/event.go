@@ -4,7 +4,6 @@ import "github.com/adwski/vidi/internal/api/video/model"
 
 const (
 	KindUpdateStatus = iota + 1
-	KindUpdateLocation
 	KindUpdateStatusAndLocation
 )
 

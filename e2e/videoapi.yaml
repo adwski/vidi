@@ -5,7 +5,7 @@ server:
 api:
   prefix: /api/video
 database:
-  dsn: postgres://videoapi:videoapi@localhost:5400/videoapi?sslmode=disable
+  dsn: postgres://videoapi:videoapi@localhost:5432/videoapi?sslmode=disable
 redis:
   dsn: redis://localhost:6379/0
 media:

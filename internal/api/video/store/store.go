@@ -114,12 +114,6 @@ func (s *Store) GetListByStatus(ctx context.Context, status model.Status) ([]*mo
 	return videos, nil
 }
 
-func (s *Store) UpdateLocation(ctx context.Context, vi *model.Video) error {
-	query := `update videos set location = $2 where id = $1`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.Location)
-	return handleTagOneRowAndErr(&tag, err)
-}
-
 func (s *Store) UpdateStatus(ctx context.Context, vi *model.Video) error {
 	query := `update videos set status = $2 where id = $1`
 	tag, err := s.Pool().Exec(ctx, query, vi.ID, int(vi.Status))
@@ -133,13 +127,13 @@ func (s *Store) Update(ctx context.Context, vi *model.Video) error {
 }
 
 func handleTagOneRowAndErr(tag *pgconn.CommandTag, err error) error {
-	if err == nil {
-		if tag.RowsAffected() != 1 {
-			return fmt.Errorf("affected rows: %d, expected: 1", tag.RowsAffected())
-		}
-		return nil
+	if err != nil {
+		return handleDBErr(err)
 	}
-	return handleDBErr(err)
+	if tag.RowsAffected() != 1 {
+		return fmt.Errorf("affected rows: %d, expected: 1", tag.RowsAffected())
+	}
+	return nil
 }
 
 func handleDBErr(err error) error {

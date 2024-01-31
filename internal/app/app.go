@@ -137,6 +137,10 @@ func (app *App) configure(configName string) int {
 	return 0
 }
 
+func (app *App) SetLogger(logger *zap.Logger) {
+	app.logger = logger
+}
+
 func (app *App) readConfig(name string) error {
 	app.viper.SetConfigName(name)
 	app.viper.SetConfigType("yaml")

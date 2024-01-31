@@ -5,14 +5,15 @@ package e2e
 
 import (
 	"context"
-	"github.com/adwski/vidi/internal/app/processor"
-	"github.com/adwski/vidi/internal/app/streamer"
-	"github.com/adwski/vidi/internal/app/uploader"
-	"github.com/adwski/vidi/internal/app/video"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/adwski/vidi/internal/app/processor"
+	"github.com/adwski/vidi/internal/app/streamer"
+	"github.com/adwski/vidi/internal/app/uploader"
+	"github.com/adwski/vidi/internal/app/video"
 
 	"github.com/adwski/vidi/internal/app/user"
 )

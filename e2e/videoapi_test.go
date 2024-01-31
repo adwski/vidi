@@ -4,6 +4,8 @@
 package e2e
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,12 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAndDeleteVideo(t *testing.T) {
+func TestCreateFail(t *testing.T) {
 	//-------------------------------------------------------------------------------
 	// Create video with no cookie
 	//-------------------------------------------------------------------------------
 	videoCreateFail(t)
+}
 
+func TestCreateAndDeleteVideo(t *testing.T) {
 	//-------------------------------------------------------------------------------
 	// Login with existent user
 	//-------------------------------------------------------------------------------
@@ -119,4 +123,48 @@ func TestWatchVideo(t *testing.T) {
 	t.Logf("watch url retrieved: %s", watchResponse.WatchURL)
 
 	watchVideo(t, watchResponse.WatchURL)
+}
+
+func TestFails(t *testing.T) {
+	//-------------------------------------------------------------------------------
+	// Login with existent user
+	//-------------------------------------------------------------------------------
+	cookie := userLogin(t, &user.UserRequest{
+		Username: "testuser",
+		Password: "testpass",
+	})
+	t.Logf("user logged in, token: %v", cookie.Value)
+
+	//-------------------------------------------------------------------------------
+	// Create video
+	//-------------------------------------------------------------------------------
+	videoResponse := videoCreate(t, cookie)
+	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadURL)
+
+	//-------------------------------------------------------------------------------
+	// Get video
+	//-------------------------------------------------------------------------------
+	videoGetFail(t, cookie, "not-existent", http.StatusNotFound)
+
+	//-------------------------------------------------------------------------------
+	// Get video no auth
+	//-------------------------------------------------------------------------------
+	videoGetFail(t, &http.Cookie{Name: "x", Value: "y"}, videoResponse.ID, http.StatusUnauthorized)
+
+	//-------------------------------------------------------------------------------
+	// Get watch URL no-ready video
+	//-------------------------------------------------------------------------------
+	videoWatchFail(t, cookie, videoResponse, http.StatusMethodNotAllowed)
+
+	//-------------------------------------------------------------------------------
+	// Upload video, invalid request
+	//-------------------------------------------------------------------------------
+	videoUploadFailGet(t, videoResponse.UploadURL)
+
+	//-------------------------------------------------------------------------------
+	// Upload video, invalid requests
+	//-------------------------------------------------------------------------------
+	url := videoResponse.UploadURL[:strings.LastIndex(videoResponse.UploadURL, "/")]
+	videoUploadFail(t, url)
+	videoUploadFail(t, url+"/qweqwe/")
 }

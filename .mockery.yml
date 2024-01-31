@@ -1,0 +1,11 @@
+quiet: False
+disable-version-string: True
+with-expecter: True
+mockname: "Mock{{.InterfaceName}}"
+filename: "mock_{{.InterfaceName|lower}}_test.go"
+outpkg: "{{.PackageName}}"
+dir: "{{.InterfaceDir}}"
+packages:
+  github.com/adwski/vidi/internal/api/video:
+    interfaces:
+      Store: {}

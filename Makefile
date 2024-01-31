@@ -1,3 +1,8 @@
+.PHONY: mock
+mock:
+	find . -type f -name "mock_*" -exec rm -rf {} +
+	mockery
+
 .PHONY: docker-dev
 docker-dev:
 	cd docker/compose ;\

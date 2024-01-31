@@ -135,12 +135,12 @@ func (svc *Service) login(c echo.Context) error {
 
 	switch {
 	case errors.Is(err, model.ErrNotFound):
-		return c.JSON(http.StatusNotFound, &common.Response{
-			Error: err.Error(),
+		return c.JSON(http.StatusUnauthorized, &common.Response{
+			Error: "incorrect credentials",
 		})
 	case errors.Is(err, model.ErrIncorrectCredentials):
 		return c.JSON(http.StatusUnauthorized, &common.Response{
-			Error: err.Error(),
+			Error: "incorrect credentials",
 		})
 	default:
 		svc.logger.Error("internal error", zap.Error(err))

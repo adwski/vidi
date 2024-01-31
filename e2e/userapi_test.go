@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/adwski/vidi/internal/api/user/model"
@@ -16,7 +17,7 @@ func TestUserRegistration(t *testing.T) {
 	userLoginFail(t, &model.UserRequest{
 		Username: "testuser",
 		Password: "testpass",
-	})
+	}, http.StatusUnauthorized)
 
 	//-------------------------------------------------------------------------------
 	// Register user
@@ -26,6 +27,19 @@ func TestUserRegistration(t *testing.T) {
 		Password: "testpass",
 	})
 	t.Logf("user is registered, token: %v", cookie.Value)
+
+	//-------------------------------------------------------------------------------
+	// Register existing user
+	//-------------------------------------------------------------------------------
+	userRegisterFail(t, &model.UserRequest{
+		Username: "testuser",
+		Password: "testpass",
+	}, http.StatusConflict)
+
+	//-------------------------------------------------------------------------------
+	// Register with invalid data
+	//-------------------------------------------------------------------------------
+	userRegisterFail(t, "", http.StatusBadRequest)
 }
 
 func TestUserLogin(t *testing.T) {
@@ -44,5 +58,18 @@ func TestUserLogin(t *testing.T) {
 	userLoginFail(t, &model.UserRequest{
 		Username: "testuser2",
 		Password: "testpass2",
-	})
+	}, http.StatusUnauthorized)
+
+	//-------------------------------------------------------------------------------
+	// Login with wrong password
+	//-------------------------------------------------------------------------------
+	userLoginFail(t, &model.UserRequest{
+		Username: "testuser",
+		Password: "testpass2",
+	}, http.StatusUnauthorized)
+
+	//-------------------------------------------------------------------------------
+	// Login with invalid params
+	//-------------------------------------------------------------------------------
+	userLoginFail(t, "", http.StatusBadRequest)
 }

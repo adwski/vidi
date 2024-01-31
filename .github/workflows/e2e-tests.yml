@@ -1,0 +1,60 @@
+name: e2e tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  e2etests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16.1
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+      minio:
+        image: minio/minio:edge-cicd
+        options: --health-cmd "curl -s http://localhost:9000/minio/health/live"
+        env:
+          MINIO_ROOT_USER: admin
+          MINIO_ROOT_PASSWORD: password
+        ports:
+          - 9000:9000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup db
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -p 5432  -U postgres -f ./docker/compose/initdb/0001_init.sql
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: install deps
+        run: go mod download
+
+      - name: run tests
+        run: |
+          go test -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov --tags e2e ./...
+          go tool cover -func profile.cov

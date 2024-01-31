@@ -70,10 +70,6 @@ func (c *Client) UpdateVideoStatus(videoID, param string) error {
 	return c.makeUpdateRequest(videoID, paramNameStatus, param)
 }
 
-func (c *Client) UpdateVideoLocation(videoID, param string) error {
-	return c.makeUpdateRequest(videoID, paramNameLocation, param)
-}
-
 func (c *Client) makeUpdateRequest(videoID, param, value string) error {
 	response, req := c.constructUpdateRequest()
 	resp, err := req.Put(fmt.Sprintf("%s/service/%s/%s/%s", c.endpoint, videoID, param, value))
