@@ -50,8 +50,7 @@ test-nginx:
 
 .PHONY: unittests
 unittests:
-	go test ./... -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov ./...
-	go tool cover -func profile.cov
+	go test -v -count=1 ./...
 
 .PHONY: cover
 cover:

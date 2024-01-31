@@ -1,5 +1,7 @@
 ## Vidi
 
+[![Coverage](https://img.shields.io/badge/Coverage-50.0%25-brightgreen)](https://github.com/tj-actions/coverage-badge-go/actions/workflows/test.yml)
+
 WIP
 
 This is a final project for Yandex Practicum's Go Course.
@@ -28,6 +30,17 @@ make docker-dev
 
 # stop compose project and cleanup volumes
 make docker-dev-clean
+```
+
+### Tests
+
+```bash
+# run unit tests
+make unittests
+
+# run unit and end2end tests
+# docker compose project should be stopped (it will be ran by the command)
+make test-all
 ```
 
 ### Happy Path
