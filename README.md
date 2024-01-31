@@ -1,6 +1,6 @@
 ## Vidi
 
-[![Coverage](https://img.shields.io/badge/Coverage-50.0%25-brightgreen)](https://github.com/tj-actions/coverage-badge-go/actions/workflows/test.yml)
+![Coverage](https://img.shields.io/badge/Coverage-80.4%25-brightgreen)
 
 WIP
 
