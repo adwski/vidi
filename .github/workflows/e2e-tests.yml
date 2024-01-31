@@ -56,8 +56,5 @@ jobs:
 
       - name: run tests
         run: |
-          pwd
-          ls -al ./
-          ls -al testfiles
           go test -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov --tags e2e ./...
           go tool cover -func profile.cov

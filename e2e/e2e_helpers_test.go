@@ -137,7 +137,7 @@ func videoWatchFail(t *testing.T, userCookie *http.Cookie, v *video.Response, co
 func videoUpload(t *testing.T, url string) {
 	t.Helper()
 
-	f, errF := os.Open("../testFiles/test_seq_h264_high.mp4")
+	f, errF := os.Open("../testfiles/test_seq_h264_high.mp4")
 	require.NoError(t, errF)
 
 	resp, err := resty.New().R().
@@ -151,7 +151,7 @@ func videoUpload(t *testing.T, url string) {
 func videoUploadFail(t *testing.T, url string) {
 	t.Helper()
 
-	f, errF := os.Open("../testFiles/test_seq_h264_high.mp4")
+	f, errF := os.Open("../testfiles/test_seq_h264_high.mp4")
 	require.NoError(t, errF)
 
 	resp, err := resty.New().R().
@@ -165,7 +165,7 @@ func videoUploadFail(t *testing.T, url string) {
 func videoUploadFailGet(t *testing.T, url string) {
 	t.Helper()
 
-	f, errF := os.Open("../testFiles/test_seq_h264_high.mp4")
+	f, errF := os.Open("../testfiles/test_seq_h264_high.mp4")
 	require.NoError(t, errF)
 
 	resp, err := resty.New().R().
