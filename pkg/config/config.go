@@ -67,7 +67,7 @@ func (vec *ViperEC) GetURL(key string) string {
 	}
 	_, err = url.Parse(s)
 	if err != nil {
-		vec.errs[key] = errors.New("is not valid url")
+		vec.errs[key] = errors.New("url is not valid")
 		return ""
 	}
 	return s

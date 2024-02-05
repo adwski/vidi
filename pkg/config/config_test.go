@@ -3,7 +3,9 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"io"
+	"strconv"
 	"testing"
 	"time"
 
@@ -40,7 +42,6 @@ func TestViperEC_GetDuration(t *testing.T) {
 				config: bytes.NewReader([]byte("duration: 5s")),
 			},
 			want: 5 * time.Second,
-			err:  "",
 		},
 		{
 			name: "get duration error",
@@ -48,7 +49,7 @@ func TestViperEC_GetDuration(t *testing.T) {
 				key:    "duration",
 				config: bytes.NewReader([]byte("duration: sss")),
 			},
-			err: "invalid",
+			err: "invalid duration",
 		},
 		{
 			name: "get duration zero",
@@ -83,7 +84,7 @@ func TestViperEC_GetBool(t *testing.T) {
 		name string
 		args args
 		want bool
-		err  string
+		err  error
 	}{
 		{
 			name: "get bool",
@@ -92,7 +93,6 @@ func TestViperEC_GetBool(t *testing.T) {
 				config: bytes.NewReader([]byte("key: true")),
 			},
 			want: true,
-			err:  "",
 		},
 		{
 			name: "get duration error",
@@ -100,7 +100,7 @@ func TestViperEC_GetBool(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key: sss")),
 			},
-			err: "invalid",
+			err: &strconv.NumError{},
 		},
 	}
 	for _, tt := range tests {
@@ -108,11 +108,11 @@ func TestViperEC_GetBool(t *testing.T) {
 			vec := setupViper(t, tt.args.config)
 			val := vec.GetBool(tt.args.key)
 			assert.Equal(t, tt.want, val)
-			if tt.err == "" {
+			if tt.err == nil {
 				assert.Empty(t, vec.Errors())
 			} else {
 				assert.True(t, vec.HasErrors())
-				assert.Contains(t, vec.Errors()[tt.args.key].Error(), tt.err)
+				assert.IsType(t, tt.err, vec.Errors()[tt.args.key])
 			}
 		})
 	}
@@ -163,7 +163,7 @@ func TestViperEC_GetURL(t *testing.T) {
 		name string
 		args args
 		want string
-		err  string
+		err  error
 	}{
 		{
 			name: "get url",
@@ -172,7 +172,6 @@ func TestViperEC_GetURL(t *testing.T) {
 				config: bytes.NewReader([]byte("key: http://wer.asd")),
 			},
 			want: "http://wer.asd",
-			err:  "",
 		},
 		{
 			name: "get url error",
@@ -180,7 +179,7 @@ func TestViperEC_GetURL(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key: :wer.asd")),
 			},
-			err: "is not valid url",
+			err: errors.New("url is not valid"),
 		},
 	}
 	for _, tt := range tests {
@@ -188,11 +187,11 @@ func TestViperEC_GetURL(t *testing.T) {
 			vec := setupViper(t, tt.args.config)
 			dur := vec.GetURL(tt.args.key)
 			assert.Equal(t, tt.want, dur)
-			if tt.err == "" {
+			if tt.err == nil {
 				assert.Empty(t, vec.Errors())
 			} else {
 				assert.True(t, vec.HasErrors())
-				assert.Contains(t, vec.Errors()[tt.args.key].Error(), tt.err)
+				assert.Equal(t, vec.Errors()[tt.args.key], tt.err)
 			}
 		})
 	}
@@ -207,7 +206,7 @@ func TestViperEC_GetURIPrefix(t *testing.T) {
 		name string
 		args args
 		want string
-		err  string
+		err  error
 	}{
 		{
 			name: "get uri prefix",
@@ -223,7 +222,7 @@ func TestViperEC_GetURIPrefix(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key:  /api/")),
 			},
-			err: "must not end with",
+			err: errors.New("must not end with /"),
 		},
 		{
 			name: "get uri empty",
@@ -231,7 +230,7 @@ func TestViperEC_GetURIPrefix(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key: ")),
 			},
-			err: "cannot be empty",
+			err: errors.New("cannot be empty"),
 		},
 		{
 			name: "get uri prefix error",
@@ -239,7 +238,7 @@ func TestViperEC_GetURIPrefix(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key:  api/")),
 			},
-			err: "must start with",
+			err: errors.New("must start with /"),
 		},
 	}
 	for _, tt := range tests {
@@ -247,11 +246,11 @@ func TestViperEC_GetURIPrefix(t *testing.T) {
 			vec := setupViper(t, tt.args.config)
 			dur := vec.GetURIPrefix(tt.args.key)
 			assert.Equal(t, tt.want, dur)
-			if tt.err == "" {
+			if tt.err == nil {
 				assert.Empty(t, vec.Errors())
 			} else {
 				assert.True(t, vec.HasErrors())
-				assert.Contains(t, vec.Errors()[tt.args.key].Error(), tt.err)
+				assert.Equal(t, vec.Errors()[tt.args.key], tt.err)
 			}
 		})
 	}
@@ -266,7 +265,7 @@ func TestViperEC_GetString(t *testing.T) {
 		name string
 		args args
 		want string
-		err  string
+		err  error
 	}{
 		{
 			name: "get string",
@@ -282,7 +281,7 @@ func TestViperEC_GetString(t *testing.T) {
 				key:    "key",
 				config: bytes.NewReader([]byte("key: ")),
 			},
-			err: "cannot be empty",
+			err: errors.New("cannot be empty"),
 		},
 	}
 	for _, tt := range tests {
@@ -290,11 +289,11 @@ func TestViperEC_GetString(t *testing.T) {
 			vec := setupViper(t, tt.args.config)
 			dur := vec.GetString(tt.args.key)
 			assert.Equal(t, tt.want, dur)
-			if tt.err == "" {
+			if tt.err == nil {
 				assert.Empty(t, vec.Errors())
 			} else {
 				assert.True(t, vec.HasErrors())
-				assert.Contains(t, vec.Errors()[tt.args.key].Error(), tt.err)
+				assert.Equal(t, vec.Errors()[tt.args.key], tt.err)
 			}
 		})
 	}

@@ -64,8 +64,7 @@ func (s *Store) GetAll(ctx context.Context, userID string) ([]*model.Video, erro
 	query := `select id, location, status, created_at from videos where user_id = $1`
 	rows, err := s.Pool().Query(ctx, query, userID)
 	if err != nil {
-		err = model.ErrNotFound
-		return nil, err
+		return nil, handleDBErr(err)
 	}
 	videos, errR := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Video, error) {
 		var vi model.Video
