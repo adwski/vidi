@@ -13,6 +13,8 @@ import (
 
 const (
 	defaultShutdownTimeout = 15 * time.Second
+
+	defaultMaxBodySize = 500 * 1024 * 1024
 )
 
 // Server is a runnable fasthttp server designed to be used with media services.
@@ -36,11 +38,16 @@ func New(cfg *Config) *Server {
 		logger: cfg.Logger.With(zap.String("component", "server")),
 		addr:   cfg.ListenAddress,
 		srv: &fasthttp.Server{
-			Handler:         cfg.Handler,
-			ReadTimeout:     cfg.ReadTimeout,
-			WriteTimeout:    cfg.WriteTimeout,
-			IdleTimeout:     cfg.IdleTimeout,
-			CloseOnShutdown: true,
+			// TODO add ContinueHandler to validate request based on header
+			//   before reading body
+			Handler: cfg.Handler,
+
+			ReadTimeout:  cfg.ReadTimeout,
+			WriteTimeout: cfg.WriteTimeout,
+			IdleTimeout:  cfg.IdleTimeout,
+			// TODO This is needed only for uploader, move to config
+			MaxRequestBodySize: defaultMaxBodySize,
+			CloseOnShutdown:    true,
 		}}
 }
 
