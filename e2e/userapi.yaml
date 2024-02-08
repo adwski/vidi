@@ -1,0 +1,8 @@
+log:
+  level: debug
+server:
+  address: ":18081"
+api:
+  prefix: /api/user
+database:
+  dsn: postgres://userapi:userapi@localhost:5432/userapi?sslmode=disable

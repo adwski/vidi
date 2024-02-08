@@ -1,0 +1,63 @@
+---
+version: "3.8"
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "100k"
+    max-file: "5"
+
+services:
+  minio:
+    logging: *logging
+    restart: unless-stopped
+    image: quay.io/minio/minio:RELEASE.2024-01-01T16-36-33Z
+    volumes:
+      - "minio-data:/data"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: ["server", "/data", "--console-address", ":9001"]
+    networks:
+      - vidi
+
+  postgres:
+    logging: *logging
+    restart: unless-stopped
+    image: postgres:16.1-bullseye
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - "vidi-db:/var/lib/postgresql/data"
+      - "./initdb:/docker-entrypoint-initdb.d:ro"
+    ports:
+      - "5432:5432"
+    networks:
+      - vidi
+
+  redis:
+    logging: *logging
+    restart: unless-stopped
+    image: redis:7.2.3-bookworm
+    volumes:
+      - "redis-data:/data"
+    ports:
+      - "6379:6379"
+    networks:
+      - vidi
+    command: ["redis-server", "--save", "60", "1"]
+
+volumes:
+  minio-data: {}
+  redis-data: {}
+  vidi-db: {}
+
+networks:
+  vidi:
+    name: vidi-net
+    driver: bridge

@@ -1,0 +1,84 @@
+---
+version: "3.8"
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "100k"
+    max-file: "5"
+
+services:
+  uploader:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/uploader.Dockerfile
+      target: dev
+    environment:
+      VIDI_API_PREFIX: /upload
+      VIDI_REDIS_DSN: redis://redis:6379/0
+      VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
+      VIDI_VIDEOAPI_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJzdmMtQnNwMjhpcG1TSFdkSTdTSXdQMEo0QSIsIm5hbWUiOiJub3RpZmljYXRvciIsInJvbGUiOiJzZXJ2aWNlIiwiZXhwIjoxNzM2ODgwMDk0fQ.xjMV5Z_EBGch6fYM9ZSSC3W9QKjij2S0zI8HGz8wrAY"
+      VIDI_SERVER_ADDRESS: ":8080"
+      VIDI_S3_PREFIX_UPLOAD: /upload
+      VIDI_S3_ENDPOINT: minio:9000
+      VIDI_S3_ACCESS_KEY: admin
+      VIDI_S3_SECRET_KEY: password
+      VIDI_S3_BUCKET: vidi
+    expose:
+      - 8080
+    networks:
+      - vidi
+    depends_on:
+      - minio
+      - redis
+
+  streamer:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/streamer.Dockerfile
+      target: dev
+    environment:
+      VIDI_API_PREFIX: /watch
+      VIDI_REDIS_DSN: redis://redis:6379/0
+      VIDI_SERVER_ADDRESS: ":8080"
+      VIDI_S3_PREFIX_WATCH: /videos
+      VIDI_S3_ENDPOINT: minio:9000
+      VIDI_S3_ACCESS_KEY: admin
+      VIDI_S3_SECRET_KEY: password
+      VIDI_S3_BUCKET: vidi
+      VIDI_CORS_ENABLE: true
+      VIDI_CORS_ALLOW_ORIGIN: "*"
+    expose:
+      - 8080
+    networks:
+      - vidi
+    depends_on:
+      - minio
+      - redis
+
+  processor:
+    logging: *logging
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: docker/processor.Dockerfile
+      target: dev
+    environment:
+      VIDI_VIDEOAPI_ENDPOINT: http://videoapi:8080/api/video
+      VIDI_VIDEOAPI_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJzdmMtQnNwMjhpcG1TSFdkSTdTSXdQMEo0QSIsIm5hbWUiOiJub3RpZmljYXRvciIsInJvbGUiOiJzZXJ2aWNlIiwiZXhwIjoxNzM2ODgwMDk0fQ.xjMV5Z_EBGch6fYM9ZSSC3W9QKjij2S0zI8HGz8wrAY"
+      VIDI_S3_PREFIX_UPLOAD: /upload
+      VIDI_S3_PREFIX_WATCH: /videos
+      VIDI_S3_ENDPOINT: minio:9000
+      VIDI_S3_ACCESS_KEY: admin
+      VIDI_S3_SECRET_KEY: password
+      VIDI_S3_BUCKET: vidi
+      VIDI_PROCESSOR_SEGMENT_DURATION: 3s
+      VIDI_PROCESSOR_VIDEO_CHECK_PERIOD: 5s
+    networks:
+      - vidi
+    depends_on:
+      - minio

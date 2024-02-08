@@ -1,0 +1,14 @@
+log:
+  level: debug
+server:
+  address: ":18082"
+api:
+  prefix: /api/video
+database:
+  dsn: postgres://videoapi:videoapi@localhost:5432/videoapi?sslmode=disable
+redis:
+  dsn: redis://localhost:6379/0
+media:
+  url:
+    watch: http://localhost:18084/watch
+    upload: http://localhost:18083/upload

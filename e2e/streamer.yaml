@@ -1,0 +1,17 @@
+log:
+  level: debug
+server:
+  address: ":18084"
+api:
+  prefix: /watch
+redis:
+  dsn: redis://localhost:6379/0
+s3:
+  prefix_watch: /watch
+  endpoint: localhost:9000
+  access_key: admin
+  secret_key: password
+  bucket: vidi
+cors:
+  enable: true
+  allow_origin: "*"
