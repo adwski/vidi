@@ -2,103 +2,51 @@
 package video
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"net/http"
-
-	common "github.com/adwski/vidi/internal/api/model"
-	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video/model"
-	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
 )
 
-func (svc *Service) getServiceSession(c echo.Context) error {
-	claims, err := auth.GetClaimFromContext(c)
+func (svc *Service) UpdateVideoStatus(ctx context.Context, vid, statusName string) error {
+	status, err := model.GetStatusFromName(statusName)
 	if err != nil {
-		svc.logger.Error("service auth fail", zap.Any("claims", claims))
-		return c.JSON(http.StatusUnauthorized, &common.Response{
-			Error: "unauthorized",
-		})
+		return err // passing ErrIncorrectStatusName as is
 	}
-	logf := svc.logger.With(zap.String("id", claims.UserID),
-		zap.String("name", claims.Name),
-		zap.String("role", claims.Role))
-
-	if claims.IsService() {
-		svc.logger.Debug("service auth ok")
-		return nil
-	}
-	logf.Error("service auth incorrect role")
-	return c.JSON(http.StatusUnauthorized, &common.Response{
-		Error: "unauthorized",
-	})
-}
-
-func (svc *Service) updateVideoStatus(c echo.Context) error {
-	if err := svc.getServiceSession(c); err != nil {
-		return err
-	}
-	id := c.Param("id")
-	status, err := model.GetStatusFromName(c.Param("status"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, &common.Response{
-			Error: err.Error(),
-		})
-	}
-	err = svc.s.UpdateStatus(c.Request().Context(), &model.Video{
-		ID:     id,
+	if err = svc.s.UpdateStatus(ctx, &model.Video{
+		ID:     vid,
 		Status: status,
-	})
-	return svc.commonResponse(c, err)
+	}); err != nil {
+		return errors.Join(model.ErrStorage, err)
+	}
+	return nil
 }
 
-func (svc *Service) updateVideo(c echo.Context) error {
-	if err := svc.getServiceSession(c); err != nil {
-		return err
-	}
-	vi, err := getVideoFromUpdateRequest(c)
+func (svc *Service) UpdateVideoStatusAndLocation(ctx context.Context, vid, statusName, location string) error {
+	status, err := model.GetStatusFromName(statusName)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, &common.Response{
-			Error: err.Error(),
-		})
+		return err // passing ErrIncorrectStatusName as is
 	}
-	err = svc.s.Update(c.Request().Context(), vi)
-	return svc.commonResponse(c, err)
-}
-
-func getVideoFromUpdateRequest(c echo.Context) (*model.Video, error) {
-	var req model.UpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return nil, errors.New("invalid params")
+	if len(location) == 0 {
+		return model.ErrEmptyLocation
 	}
-	status, err := model.GetStatusFromName(req.Status)
-	if err != nil {
-		return nil, fmt.Errorf("invalid status: %w", err)
-	}
-	if len(req.Location) == 0 {
-		return nil, errors.New("empty location")
-	}
-	return &model.Video{
-		ID:       c.Param("id"),
-		Location: req.Location,
+	if err = svc.s.Update(ctx, &model.Video{
+		ID:       vid,
 		Status:   status,
-	}, nil
+		Location: location,
+	}); err != nil {
+		return errors.Join(model.ErrStorage, err)
+	}
+	return nil
 }
 
-func (svc *Service) listVideos(c echo.Context) error {
-	if err := svc.getServiceSession(c); err != nil {
-		return err
-	}
-	var req model.ListRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, &common.Response{
-			Error: "incorrect params",
-		})
-	}
-	videos, err := svc.s.GetListByStatus(c.Request().Context(), req.Status)
+func (svc *Service) GetVideosByStatus(ctx context.Context, statusName string) ([]*model.Video, error) {
+	status, err := model.GetStatusFromName(statusName)
 	if err != nil {
-		return svc.erroredResponse(c, err)
+		return nil, err // passing ErrIncorrectStatusName as is
 	}
-	return c.JSON(http.StatusOK, videos)
+	videos, err := svc.s.GetListByStatus(ctx, status)
+	if err != nil {
+		return nil, errors.Join(model.ErrStorage, err)
+	}
+	return videos, nil
 }

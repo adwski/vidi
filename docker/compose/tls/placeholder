@@ -1,0 +1,1 @@
+place cert.pem and kep.pem here or run 'make nginx-tls' from repo root

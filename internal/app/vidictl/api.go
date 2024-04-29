@@ -1,4 +1,4 @@
-package vidicli
+package vidictl
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ var apiCmd = &cobra.Command{
 
 var createSvcTokenCmd = &cobra.Command{
 	Use:   "create-service-token",
-	Short: "create service token suitable for videoapi service calls",
+	Short: "create token suitable for videoapi service calls",
 	Run: func(cmd *cobra.Command, args []string) {
 		name := cmd.Flag("svcname").Value.String()
 		secret := cmd.Flag("jwtsecret").Value.String()

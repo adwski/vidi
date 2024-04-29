@@ -76,7 +76,7 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 	if videoTrack && audioTrack {
 		printW(w, "\nCodecs are supported!\n")
 	} else {
-		printW(w, "\nSome codec is not yet supported!\n")
+		printW(w, "\nSome codecs are not yet supported!\n")
 	}
 }
 

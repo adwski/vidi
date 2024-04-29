@@ -1,24 +1,22 @@
 //go:build e2e
-// +build e2e
 
 package e2e
 
 import (
+	"github.com/Eyevinn/dash-mpd/mpd"
+	common "github.com/adwski/vidi/internal/api/model"
+	"github.com/adwski/vidi/internal/api/user/model"
+	videohttp "github.com/adwski/vidi/internal/api/video/http"
+	video "github.com/adwski/vidi/internal/api/video/model"
+	"github.com/adwski/vidi/internal/mp4"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/go-resty/resty/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
-
-	"github.com/Eyevinn/dash-mpd/mpd"
-	common "github.com/adwski/vidi/internal/api/model"
-	"github.com/adwski/vidi/internal/api/user/model"
-	video "github.com/adwski/vidi/internal/api/video/model"
-	"github.com/adwski/vidi/internal/mp4"
-	"github.com/go-resty/resty/v2"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -33,7 +31,7 @@ func userRegister(t *testing.T, user *model.UserRequest) *http.Cookie {
 	resp, body := makeCommonRequest(t, endpointUserRegister, user)
 	require.True(t, resp.IsSuccess())
 	require.Empty(t, body.Error)
-	require.Equal(t, "registration complete", body.Message)
+	require.Equal(t, "ok", body.Message)
 	return getCookieWithToken(t, resp.Cookies())
 }
 
@@ -98,12 +96,12 @@ func getCookieWithToken(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	return userCookie
 }
 
-func videoWatch(t *testing.T, userCookie *http.Cookie, v *video.Response) *video.WatchResponse {
+func videoWatch(t *testing.T, userCookie *http.Cookie, v *videohttp.VideoResponse) *videohttp.WatchResponse {
 	t.Helper()
 
 	var (
 		errBody   common.Response
-		watchBody video.WatchResponse
+		watchBody videohttp.WatchResponse
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
 		SetError(&errBody).
@@ -118,7 +116,7 @@ func videoWatch(t *testing.T, userCookie *http.Cookie, v *video.Response) *video
 	return &watchBody
 }
 
-func videoWatchFail(t *testing.T, userCookie *http.Cookie, v *video.Response, code int) {
+func videoWatchFail(t *testing.T, userCookie *http.Cookie, v *videohttp.VideoResponse, code int) {
 	t.Helper()
 
 	var (
@@ -193,11 +191,11 @@ func videoDelete(t *testing.T, userCookie *http.Cookie, id string) {
 	require.Equal(t, "ok", body.Message)
 }
 
-func videoGet(t *testing.T, userCookie *http.Cookie, id string) *video.Response {
+func videoGet(t *testing.T, userCookie *http.Cookie, id string) *videohttp.VideoResponse {
 	t.Helper()
 
 	var (
-		videoBody video.Response
+		videoBody videohttp.VideoResponse
 		errBody   common.Response
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
@@ -218,7 +216,7 @@ func videoGetFail(t *testing.T, userCookie *http.Cookie, id string, code int) {
 	t.Helper()
 
 	var (
-		videoBody video.Response
+		videoBody videohttp.VideoResponse
 		errBody   common.Response
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
@@ -231,11 +229,11 @@ func videoGetFail(t *testing.T, userCookie *http.Cookie, id string, code int) {
 	// require.NotEmpty(t, errBody.Error)
 }
 
-func videoGetAll(t *testing.T, userCookie *http.Cookie) []*video.Response {
+func videoGetAll(t *testing.T, userCookie *http.Cookie) []*videohttp.VideoResponse {
 	t.Helper()
 
 	var (
-		videoBody = make([]*video.Response, 0)
+		videoBody = make([]*videohttp.VideoResponse, 0)
 		errBody   common.Response
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
@@ -251,11 +249,11 @@ func videoGetAll(t *testing.T, userCookie *http.Cookie) []*video.Response {
 	return videoBody
 }
 
-func videoCreate(t *testing.T, userCookie *http.Cookie) *video.Response {
+func videoCreate(t *testing.T, userCookie *http.Cookie) *videohttp.VideoResponse {
 	t.Helper()
 
 	var (
-		videoBody video.Response
+		videoBody videohttp.VideoResponse
 		errBody   common.Response
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
@@ -269,7 +267,7 @@ func videoCreate(t *testing.T, userCookie *http.Cookie) *video.Response {
 	require.NotEmpty(t, videoBody.ID)
 	require.NotEmpty(t, videoBody.UploadURL)
 
-	status, err := videoBody.GetStatus()
+	status, err := video.GetStatusFromName(videoBody.Status)
 	require.NoError(t, err)
 	require.Equal(t, video.StatusCreated, status)
 
@@ -280,7 +278,7 @@ func videoCreateFail(t *testing.T) {
 	t.Helper()
 
 	var (
-		videoBody video.Response
+		videoBody videohttp.VideoResponse
 	)
 	resp, err := resty.New().R().SetHeader("Accept", "application/json").
 		SetResult(&videoBody).Post(endpointVideo)

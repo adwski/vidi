@@ -1,4 +1,4 @@
-package middleware
+package http
 
 import (
 	"github.com/adwski/vidi/internal/generators"

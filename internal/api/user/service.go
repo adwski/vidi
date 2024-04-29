@@ -5,16 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
-
-	"github.com/adwski/vidi/internal/api/middleware"
+	apihttp "github.com/adwski/vidi/internal/api/http"
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/generators"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
+	"net/http"
+	"strings"
 )
 
 type Store interface {
@@ -46,7 +45,7 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 	}
 
 	var (
-		e         = middleware.GetEchoWithDefaultMiddleware()
+		e         = apihttp.GetEchoWithDefaultMiddleware()
 		apiPrefix = strings.TrimRight(cfg.APIPrefix, "/")
 	)
 
@@ -76,9 +75,7 @@ func (svc *Service) register(c echo.Context) error {
 	id, errID := svc.idGen.Get()
 	if errID != nil {
 		svc.logger.Error("cannot generate user uid", zap.Error(errID))
-		return c.JSON(http.StatusInternalServerError, &common.Response{
-			Error: common.InternalError,
-		})
+		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 	}
 
 	user := model.NewUserFromRequest(id, req)
@@ -86,14 +83,10 @@ func (svc *Service) register(c echo.Context) error {
 		cookie, errC := svc.auth.CookieForUser(user)
 		if errC != nil {
 			svc.logger.Error("cannot create auth cookie", zap.Error(errC))
-			return c.JSON(http.StatusInternalServerError, &common.Response{
-				Error: common.InternalError,
-			})
+			return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 		}
 		c.SetCookie(cookie)
-		return c.JSON(http.StatusOK, &common.Response{
-			Message: "registration complete",
-		})
+		return c.JSON(http.StatusOK, common.ResponseRegistrationComplete)
 	}
 
 	switch {
@@ -103,9 +96,7 @@ func (svc *Service) register(c echo.Context) error {
 		})
 	default:
 		svc.logger.Error("internal error", zap.Error(err))
-		return c.JSON(http.StatusInternalServerError, &common.Response{
-			Error: common.InternalError,
-		})
+		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 	}
 }
 
@@ -123,30 +114,19 @@ func (svc *Service) login(c echo.Context) error {
 		cookie, errC := svc.auth.CookieForUser(u)
 		if errC != nil {
 			svc.logger.Error("cannot create auth cookie", zap.Error(errC))
-			return c.JSON(http.StatusInternalServerError, &common.Response{
-				Error: common.InternalError,
-			})
+			return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 		}
 		c.SetCookie(cookie)
-		return c.JSON(http.StatusOK, &common.Response{
-			Message: "login ok",
-		})
+		return c.JSON(http.StatusOK, common.ResponseOK)
 	}
 
 	switch {
-	case errors.Is(err, model.ErrNotFound):
-		return c.JSON(http.StatusUnauthorized, &common.Response{
-			Error: "incorrect credentials",
-		})
-	case errors.Is(err, model.ErrIncorrectCredentials):
-		return c.JSON(http.StatusUnauthorized, &common.Response{
-			Error: "incorrect credentials",
-		})
+	case errors.Is(err, model.ErrNotFound),
+		errors.Is(err, model.ErrIncorrectCredentials):
+		return c.JSON(http.StatusUnauthorized, common.ResponseIncorrectCredentials)
 	default:
 		svc.logger.Error("internal error", zap.Error(err))
-		return c.JSON(http.StatusInternalServerError, &common.Response{
-			Error: common.InternalError,
-		})
+		return c.JSON(http.StatusInternalServerError, &common.ResponseInternalError)
 	}
 }
 

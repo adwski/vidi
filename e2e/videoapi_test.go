@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 package e2e
 
@@ -85,7 +84,7 @@ Loop:
 		case <-time.After(3 * time.Second):
 			videoResponse2 := videoGet(t, cookie, videoResponse.ID)
 			t.Logf("video retrieved, id: %s, status: %v", videoResponse2.ID, videoResponse2.Status)
-			status, err := videoResponse2.GetStatus()
+			status, err := video.GetStatusFromName(videoResponse2.Status)
 			require.NoError(t, err)
 			if status != video.StatusReady {
 				continue Loop

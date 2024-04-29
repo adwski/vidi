@@ -81,12 +81,14 @@ func NewStore(cfg *Config) (*Store, error) {
 		DB:       db,
 	})
 	return &Store{
-		logger: cfg.Logger.With(zap.String("component", "session-store")),
-		r:      r,
-		cache:  cache,
-		enc:    jsoniter.ConfigCompatibleWithStandardLibrary,
-		name:   []byte(cfg.Name),
-		ttl:    cfg.TTL,
+		logger: cfg.Logger.With(
+			zap.String("component", "session-store"),
+			zap.String("name", cfg.Name)),
+		r:     r,
+		cache: cache,
+		enc:   jsoniter.ConfigCompatibleWithStandardLibrary,
+		name:  []byte(cfg.Name),
+		ttl:   cfg.TTL,
 
 		// Local cache ttl is half of redis ttl.
 		// Because of this after half-time we goto redis and update expiration,

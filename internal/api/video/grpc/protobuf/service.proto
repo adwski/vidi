@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package videoapi;
+
+option go_package="internal/api/video/grpc/service/pb;pb";
+
+service videoapi {
+  rpc GetVideosByStatus(GetByStatusRequest) returns (VideoListResponse);
+  rpc UpdateVideo(UpdateVideoRequest) returns (UpdateVideoResponse);
+}
+
+message GetByStatusRequest {
+  string status = 1;
+}
+
+message VideoListResponse{
+  repeated Video videos = 1;
+}
+
+message Video {
+  string id = 1;
+  string status = 2;
+  string created_at = 3;
+}
+
+message UpdateVideoRequest {
+  string id = 1;
+  string status = 2;
+  string location = 3;
+  bytes playback_meta = 4;
+}
+
+message UpdateVideoResponse {}

@@ -1,4 +1,4 @@
-package vidicli
+package vidictl
 
 import (
 	"fmt"

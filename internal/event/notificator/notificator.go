@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/adwski/vidi/internal/api/video/client"
+	"github.com/adwski/vidi/internal/api/video/http/client"
 	"github.com/adwski/vidi/internal/event"
 	"go.uber.org/zap"
 )

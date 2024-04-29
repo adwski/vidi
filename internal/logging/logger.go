@@ -39,6 +39,21 @@ func GetZapLoggerConsole() *zap.Logger {
 	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(getEncoderConfig()), os.Stdout, defaultLogLevel))
 }
 
+func GetZapLoggerFile(path string) (*zap.Logger, error) {
+	return zap.Config{
+		Level:       zap.NewAtomicLevelAt(defaultLogLevel),
+		Development: false,
+		Sampling: &zap.SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		},
+		Encoding:         "json",
+		EncoderConfig:    getEncoderConfig(),
+		OutputPaths:      []string{path},
+		ErrorOutputPaths: []string{path},
+	}.Build()
+}
+
 func getEncoderConfig() zapcore.EncoderConfig {
 	return zapcore.EncoderConfig{
 		MessageKey:     "msg",

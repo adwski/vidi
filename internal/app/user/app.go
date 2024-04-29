@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	"github.com/adwski/vidi/internal/api/server"
+	"github.com/adwski/vidi/internal/api/http/server"
 	"github.com/adwski/vidi/internal/api/user"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/user/store"

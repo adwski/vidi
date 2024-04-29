@@ -30,6 +30,8 @@ var statusNames = map[Status]string{
 
 var statusFromName = make(map[string]Status)
 
+var ErrIncorrectStatusName = errors.New("incorrect status name")
+
 func init() {
 	for k, v := range statusNames {
 		statusFromName[v] = k
@@ -40,11 +42,11 @@ func GetStatusFromName(name string) (Status, error) {
 	if status, ok := statusFromName[name]; ok {
 		return status, nil
 	}
-	return 0, errors.New("incorrect status name")
+	return 0, ErrIncorrectStatusName
 }
 
-func (s *Status) String() string {
-	return statusNames[*s]
+func (s Status) String() string {
+	return statusNames[s]
 }
 
 func (s *Status) UnmarshalJSON(b []byte) (err error) {

@@ -23,6 +23,12 @@ report.xml
 profile.cov
 coverage.html
 
+# macos stuff
 .DS_Store
 
-output
+# test video segments
+output/
+
+# certs
+docker/compose/tls/*
+!docker/compose/tls/placeholder

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/adwski/vidi/internal/api/video/client"
+	"github.com/adwski/vidi/internal/api/video/http/client"
 	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"

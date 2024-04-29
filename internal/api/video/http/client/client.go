@@ -3,19 +3,16 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
-
-	"github.com/davecgh/go-spew/spew"
-
 	common "github.com/adwski/vidi/internal/api/model"
+	httpmodel "github.com/adwski/vidi/internal/api/video/http"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
+	"strings"
 )
 
 const (
-	paramNameStatus   = "status"
-	paramNameLocation = "location"
+	paramNameStatus = "status"
 )
 
 // Client is a Video API service-side client.
@@ -56,8 +53,8 @@ func (c *Client) GetUploadedVideos(ctx context.Context) ([]*model.Video, error) 
 		SetAuthToken(c.token).
 		SetError(&errResponse).
 		SetResult(&videosResponse).
-		SetBody(&model.ListRequest{
-			Status: model.StatusUploaded,
+		SetBody(&httpmodel.ListRequest{
+			Status: model.StatusUploaded.String(),
 		}).
 		Post(fmt.Sprintf("%s/service/search", c.endpoint))
 	if err != nil {
@@ -78,9 +75,8 @@ func (c *Client) makeUpdateRequest(videoID, param, value string) error {
 
 func (c *Client) UpdateVideo(videoID, status, location string) error {
 	response, req := c.constructUpdateRequest()
-	spew.Dump(req.Token)
 	resp, err := req.
-		SetBody(&model.UpdateRequest{
+		SetBody(&httpmodel.UpdateRequest{
 			Status:   status,
 			Location: location,
 		}).

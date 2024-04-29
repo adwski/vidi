@@ -45,6 +45,11 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 	}, nil
 }
 
+func (s *Store) Usage(ctx context.Context, userID string) (*model.UserUsage, error) {
+	// TODO query usage
+	return &model.UserUsage{}, nil
+}
+
 func (s *Store) Create(ctx context.Context, vi *model.Video) error {
 	query := `insert into videos (id, user_id, status, created_at) values ($1, $2, $3, $4)`
 	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt)
@@ -76,9 +81,6 @@ func (s *Store) GetAll(ctx context.Context, userID string) ([]*model.Video, erro
 	})
 	if errR != nil {
 		return nil, fmt.Errorf("error while collecting rows: %w", errR)
-	}
-	if len(videos) == 0 {
-		return nil, model.ErrNotFound
 	}
 	return videos, nil
 }

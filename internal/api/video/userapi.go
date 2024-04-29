@@ -2,165 +2,126 @@
 package video
 
 import (
+	"context"
 	"errors"
-	"net/http"
-
-	common "github.com/adwski/vidi/internal/api/model"
-	"github.com/adwski/vidi/internal/api/user/auth"
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/session"
 	sessionStore "github.com/adwski/vidi/internal/session/store"
-	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
 )
 
-func (svc *Service) getUserSession(c echo.Context) (*user.User, error, bool) {
-	claims, err := auth.GetClaimFromContext(c)
+const (
+	videoCreateRetries = 3
+)
+
+func (svc *Service) GetQuotas(ctx context.Context, usr *user.User) (*model.UserStats, error) {
+	usage, err := svc.s.Usage(ctx, usr.ID)
 	if err != nil {
-		svc.logger.Debug("cannot get user session", zap.Error(err))
-		return nil, c.JSON(http.StatusUnauthorized, &common.Response{
-			Error: "unauthorized",
-		}), false
+		return nil, errors.Join(model.ErrStorage, err)
 	}
-	return &user.User{
-		ID:   claims.UserID,
-		Name: claims.Name,
-	}, nil, true
+	return &model.UserStats{
+		VideosQuota: svc.Quotas.VideosPerUser,
+		VideosUsage: usage.Videos,
+		SizeQuota:   svc.Quotas.MaxTotalSize,
+		SizeUsage:   usage.Size,
+	}, nil
 }
 
-func (svc *Service) getVideo(c echo.Context) error {
-	u, err, ok := svc.getUserSession(c)
-	if !ok {
-		return err
+func (svc *Service) GetVideo(ctx context.Context, usr *user.User, vid string) (*model.Video, error) {
+	// TODO handle upload URL for upload resuming
+	video, err := svc.s.Get(ctx, vid, usr.ID)
+	if err != nil {
+		return nil, errors.Join(model.ErrStorage, err)
 	}
-	video, errV := svc.s.Get(c.Request().Context(), c.Param("id"), u.ID)
-	if errV == nil {
-		return c.JSON(http.StatusOK, video.Response())
-	}
-	return svc.erroredResponse(c, errV)
+	return video, nil
 }
 
-func (svc *Service) getVideos(c echo.Context) error {
-	u, err, ok := svc.getUserSession(c)
-	if !ok {
-		return err
+func (svc *Service) GetVideos(ctx context.Context, usr *user.User) ([]*model.Video, error) {
+	videos, err := svc.s.GetAll(ctx, usr.ID)
+	if err != nil {
+		return nil, errors.Join(model.ErrStorage, err)
 	}
-	videos, errV := svc.s.GetAll(c.Request().Context(), u.ID)
-	if errV != nil {
-		return svc.erroredResponse(c, errV)
-	}
-	resp := make([]*model.Response, 0, len(videos))
-	for _, v := range videos {
-		resp = append(resp, v.Response())
-	}
-	return c.JSON(http.StatusOK, resp)
+	return videos, nil
 }
 
-func (svc *Service) watchVideo(c echo.Context) error {
-	u, err, ok := svc.getUserSession(c)
-	if !ok {
-		return err
+func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) (string, error) {
+	video, err := svc.s.Get(ctx, vid, usr.ID)
+	if err != nil {
+		return "", errors.Join(model.ErrStorage, err)
 	}
-	video, errV := svc.s.Get(c.Request().Context(), c.Param("id"), u.ID)
-	if errV != nil {
-		return svc.erroredResponse(c, errV)
-	}
-
 	if video.IsErrored() {
-		return c.JSON(http.StatusMethodNotAllowed, &common.Response{
-			Error: "video cannot be watched",
-		})
+		return "", model.ErrState
 	}
-
 	if !video.IsReady() {
-		return c.JSON(http.StatusMethodNotAllowed, &common.Response{
-			Error: "video is not ready",
-		})
+		return "", model.ErrNotReady
 	}
-
-	if sessID, sessOK := svc.storeSessionAndReturnURL(c, video, svc.watchSessions); sessOK {
-		return c.JSON(http.StatusAccepted, &model.WatchResponse{WatchURL: svc.getWatchURL(sessID)})
+	sessID, err := svc.storeSessionAndReturnURL(ctx, video, svc.watchSessions)
+	if err != nil {
+		return "", err
 	}
-	return c.JSON(http.StatusInternalServerError, &common.Response{
-		Error: common.InternalError,
-	})
+	return svc.getWatchURL(sessID), nil
 }
 
-func (svc *Service) deleteVideo(c echo.Context) error {
-	u, err, ok := svc.getUserSession(c)
-	if !ok {
-		return err
+func (svc *Service) DeleteVideo(ctx context.Context, usr *user.User, vid string) error {
+	err := svc.s.Delete(ctx, vid, usr.ID)
+	if err != nil {
+		return errors.Join(model.ErrStorage, err)
 	}
-	err = svc.s.Delete(c.Request().Context(), c.Param("id"), u.ID)
-	if err == nil {
-		return c.JSON(http.StatusOK, &common.Response{
-			Message: "ok",
-		})
-	}
-	return svc.erroredResponse(c, err)
+	return nil
 }
 
-func (svc *Service) createVideo(c echo.Context) error {
-	u, err, ok := svc.getUserSession(c)
-	if !ok {
-		return err
-	}
-	newID, errID := svc.idGen.Get()
-	if errID != nil {
-		svc.logger.Error("cannot generate new video id", zap.Error(errID))
-		return c.JSON(http.StatusInternalServerError, &common.Response{
-			Error: common.InternalError,
-		})
-	}
+func (svc *Service) CreateVideo(ctx context.Context, usr *user.User) (*model.Video, error) {
+	var (
+		vid string
+		err error
+	)
+	newVideo := model.NewVideoNoID(usr.ID)
 
-	newVideo := model.NewVideo(newID, u.ID)
-	err = svc.s.Create(c.Request().Context(), newVideo)
-	if err == nil {
-		if sess, sessOK := svc.storeSessionAndReturnURL(c, newVideo, svc.uploadSessions); sessOK {
-			return c.JSON(http.StatusCreated, newVideo.UploadResponse(svc.getUploadURL(sess)))
+	for i := 1; ; i++ {
+		vid, err = svc.idGen.Get()
+		if err != nil {
+			return nil, errors.Join(errors.New("cannot generate video id"), err)
 		}
-		return c.JSON(http.StatusInternalServerError, &common.Response{
-			Error: common.InternalError,
-		})
+		newVideo.ID = vid
+		if err = svc.s.Create(ctx, newVideo); err == nil {
+			break
+		}
+		if errors.Is(err, model.ErrAlreadyExists) {
+			if i < videoCreateRetries {
+				continue
+			}
+			err = errors.Join(model.ErrGivenUp, err)
+		}
+		break
 	}
-	switch {
-	case errors.Is(err, model.ErrAlreadyExists):
-		svc.logger.Error("video with generated id already exists")
-	default:
-		svc.logger.Error("cannot create video in storage", zap.Error(err))
+	if err != nil {
+		return nil, errors.Join(model.ErrStorage, err)
 	}
-	return c.JSON(http.StatusInternalServerError, &common.Response{
-		Error: common.InternalError,
-	})
+
+	sessID, err := svc.storeSessionAndReturnURL(ctx, newVideo, svc.uploadSessions)
+	if err != nil {
+		return nil, err
+	}
+	newVideo.UploadURL = svc.getUploadURL(sessID)
+	return newVideo, nil
 }
 
 func (svc *Service) storeSessionAndReturnURL(
-	c echo.Context,
+	ctx context.Context,
 	vi *model.Video,
 	sessStore *sessionStore.Store,
-) (*session.Session, bool) {
-	sessID, errSess := svc.idGen.Get()
-	if errSess != nil {
-		svc.logger.Error("cannot generate session id",
-			zap.String("type", sessStore.Name()),
-			zap.Error(errSess))
-		return nil, false
+) (*session.Session, error) {
+	sessID, err := svc.idGen.Get()
+	if err != nil {
+		return nil, errors.Join(model.ErrInternal, err)
 	}
 	sess := &session.Session{
 		ID:       sessID,
 		VideoID:  vi.ID,
 		Location: vi.Location, // used for watch sessions
 	}
-	errSess = sessStore.Set(c.Request().Context(), sess)
-	if errSess != nil {
-		svc.logger.Error("cannot store session",
-			zap.String("type", sessStore.Name()),
-			zap.Error(errSess))
-		return nil, false
+	if err = sessStore.Set(ctx, sess); err != nil {
+		return nil, errors.Join(model.ErrSessionStorage, err)
 	}
-	svc.logger.Debug("session stored",
-		zap.String("type", sessStore.Name()),
-		zap.String("id", sess.ID))
-	return sess, true
+	return sess, nil
 }

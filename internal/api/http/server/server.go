@@ -14,7 +14,7 @@ const (
 	defaultShutdownTimeout = 10 * time.Second
 )
 
-// Server is a runnable http server designed to be used with API services.
+// Server is a runnable http server that is used to serve HTTP API services.
 type Server struct {
 	logger *zap.Logger
 	srv    *http.Server
@@ -35,7 +35,7 @@ func NewServer(cfg *Config) (*Server, error) {
 	}
 
 	return &Server{
-		logger: cfg.Logger.With(zap.String("component", "server")),
+		logger: cfg.Logger.With(zap.String("component", "http-server")),
 		srv: &http.Server{
 			Addr:              cfg.ListenAddress,
 			ReadTimeout:       cfg.ReadTimeout,
@@ -53,7 +53,7 @@ func (s *Server) SetHandler(h http.Handler) {
 func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error) {
 	defer wg.Done()
 	if s.srv.Handler == nil {
-		errc <- errors.New("server handler is not set")
+		errc <- errors.New("handler is not set")
 		return
 	}
 
