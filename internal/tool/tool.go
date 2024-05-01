@@ -36,9 +36,11 @@ type (
 
 		// flag indicating that user should enter credentials
 		enterCreds bool
-
 		// quit screen flag
 		quitting bool
+
+		// main menu transition flags
+		videosScreen bool
 	}
 
 	// RemoteCFG is config that is dynamically retrieved from ViDi when tool starts.
@@ -135,6 +137,15 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case reLogControl:
 		t.err = t.processLoginExistingUser(t.state.getCurrentUserUnsafe().Name, dta.password)
+	case mainMenuControl:
+		switch dta.option {
+		case mainMenuOptionSwitchUser:
+			t.state.CurrentUser = -1
+		case mainMenuOptionVideos:
+			t.state.getCurrentUserUnsafe().Videos, t.err = t.getVideos()
+			t.videosScreen = true
+		default:
+		}
 	}
 	// reconcile screen changes
 	t.cycleViews()
@@ -196,7 +207,7 @@ func (t *Tool) cycleViews() {
 		err := t.state.checkToken()
 		if err == nil {
 			// token is valid, can use current user
-			t.screen = newMainMenuScreen()
+			t.screen = newMainMenuScreen(t.state.getCurrentUserUnsafe().Name)
 		} else {
 			// token is invalid
 			t.logger.Debug("token check error", zap.Error(err))
@@ -205,19 +216,24 @@ func (t *Tool) cycleViews() {
 				// proceed to reLog screen with selected user
 				t.screen = newReLogScreen(t.state.getCurrentUserUnsafe().Name)
 			} else {
-				// show user select screen
-				if t.state.CurrentUser == -1 {
-					// []Users are not empty here,
-					// change current user idx since we need to render something as first option
-					t.state.CurrentUser = 0
-				}
-				t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
-
+				// main flow screens
+				t.mainFlow()
 			}
 		}
 	}
 	t.enterCreds = false // reset flag
 	t.logger.Debug("cycling screens", zap.Any("screen", t.screen.name()))
+}
+
+func (t *Tool) mainFlow() {
+	switch {
+	case t.videosScreen:
+		// videos screen
+		t.screen = newVideosScreen(t.state.getCurrentUserUnsafe().Videos)
+	default:
+		// Main menu
+		t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
+	}
 }
 
 // getRemoteConfig retrieves json config from ViDi endpoint.

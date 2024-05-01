@@ -40,17 +40,18 @@ func newUserSelect(users []User, id int) *sUserSelect {
 		us   sUserSelect
 		opts []huh.Option[int]
 	)
-	opts = append(opts, huh.NewOption(fmt.Sprintf("Enter password for '%s'", users[id].Name), optionUserSelectCurrent))
-	opts = append(opts, huh.NewOption("Select another user", optionUserLogInNew))
+	if id > -1 {
+		opts = append(opts, huh.NewOption(fmt.Sprintf("Enter password for '%s'", users[id].Name), optionUserSelectCurrent))
+	}
+	opts = append(opts, huh.NewOption("Login with another user", optionUserLogInNew))
 	for idx, u := range users {
 		if idx != id {
-			opts = append(opts, huh.NewOption(fmt.Sprintf("Login as '%s'", u.Name), id))
+			opts = append(opts, huh.NewOption(fmt.Sprintf("Login as '%s'", u.Name), idx))
 		}
 	}
 	f := huh.NewForm(
 		huh.NewGroup(
-			huh.NewNote().Title("Current user has no valid token. "+
-				"Enter your password again or select another user"),
+			huh.NewNote().Title("Enter your password again or select another user"),
 			huh.NewSelect[int]().
 				Title("Choose what to do").
 				Options(opts...).Value(&us.option),

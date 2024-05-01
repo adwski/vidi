@@ -2,37 +2,50 @@ package tool
 
 import (
 	"fmt"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/huh"
 )
 
-type sMainMenu struct {
-	list   list.Model
-	choice string
-}
+const (
+	mainMenuOptionVideos = iota + 1
+	mainMenuOptionUpload
+	mainMenuOptionQuotas
+	mainMenuOptionSwitchUser
+)
 
-func newMainMenuScreen() *sMainMenu {
-	items := []list.Item{
-		item("Videos"),
-		item("Upload"),
-		item("Quotas"),
-		item("Switch User"),
+type (
+	sMainMenu struct {
+		form   *huh.Form
+		option int
+		choice string
 	}
 
-	l := list.New(items, itemDelegate{}, defaultListWidth, defaultListHeight)
-	l.Title = "Select action"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = styleListTitle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
+	mainMenuControl struct {
+		option int
+	}
+)
 
-	return &sMainMenu{list: l}
+func newMainMenuScreen(user string) *sMainMenu {
+	smm := &sMainMenu{}
+	f := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().Title(fmt.Sprintf("Logged as %s", user)),
+			huh.NewSelect[int]().
+				Title("Choose what to do").
+				Options(
+					huh.NewOption("Videos", mainMenuOptionVideos),
+					huh.NewOption("Upload", mainMenuOptionUpload),
+					huh.NewOption("Quotas", mainMenuOptionQuotas),
+					huh.NewOption("Switch User", mainMenuOptionSwitchUser),
+				).Value(&smm.option),
+		),
+	).WithTheme(defaultHuhTheme)
+	smm.form = f
+	return smm
 }
 
 func (s *sMainMenu) init() tea.Cmd {
-	return nil
+	return s.form.Init()
 }
 
 func (s *sMainMenu) name() string {
@@ -40,31 +53,18 @@ func (s *sMainMenu) name() string {
 }
 
 func (s *sMainMenu) update(msg tea.Msg) (tea.Cmd, *outerControl) {
-	switch m := msg.(type) {
-	case tea.WindowSizeMsg:
-		s.list.SetWidth(m.Width)
-		return nil, nil
-
-	case tea.KeyMsg:
-		switch keypress := m.String(); keypress {
-		case "enter":
-			i, ok := s.list.SelectedItem().(item)
-			if ok {
-				return nil, &outerControl{
-					data: string(i),
-				}
-			}
-		}
+	form, cmd := s.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		s.form = f
 	}
-
-	var cmd tea.Cmd
-	s.list, cmd = s.list.Update(msg)
+	if s.form.State == huh.StateCompleted {
+		return nil, &outerControl{data: mainMenuControl{
+			option: s.option,
+		}}
+	}
 	return cmd, nil
 }
 
 func (s *sMainMenu) view() string {
-	if s.choice != "" {
-		return quitTextStyle.Render(fmt.Sprintf("Selected: %s", s.choice))
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, styleTitle.Render("Vidi Terminal Menu"), s.list.View())
+	return greetStyle.Render(vidiSplashText+"\n\n"+greetMessage) + "\n\n" + s.form.View()
 }

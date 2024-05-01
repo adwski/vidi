@@ -33,6 +33,15 @@ type (
 		Token          string   `json:"token"`
 		TokenExpiresAt int64    `json:"expires_at"`
 		Uploads        []Upload `json:"uploads"`
+		Videos         []Video  `json:"-"`
+	}
+
+	Video struct {
+		ID        string
+		Name      string
+		Status    string
+		Size      string
+		CreatedAt string
 	}
 
 	Upload struct {
