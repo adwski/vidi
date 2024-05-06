@@ -33,6 +33,9 @@ const (
 
 	defaultUploadSessionTTL = 300 * time.Second
 	defaultWatchSessionTTL  = 600 * time.Second
+
+	defaultMaxVideos = 100
+	defaultMaxSize   = 10 * 1 << 30
 )
 
 type Runner interface {
@@ -160,11 +163,19 @@ func (app *App) setConfigDefaults() {
 	// Logging
 	v.SetDefault("log.level", "debug")
 	// Server
-	v.SetDefault("server.address", ":8080")
-	v.SetDefault("server.timeouts.readHeader", defaultReadHeaderTimeout)
-	v.SetDefault("server.timeouts.read", defaultReadTimeout)
-	v.SetDefault("server.timeouts.write", defaultWriteTimeout)
-	v.SetDefault("server.timeouts.idle", defaultIdleTimeout)
+	v.SetDefault("server.http.address", ":8080")
+	v.SetDefault("server.http.timeouts.readHeader", defaultReadHeaderTimeout)
+	v.SetDefault("server.http.timeouts.read", defaultReadTimeout)
+	v.SetDefault("server.http.timeouts.write", defaultWriteTimeout)
+	v.SetDefault("server.http.timeouts.idle", defaultIdleTimeout)
+	// GRPC
+	v.SetDefault("server.grpc.address", ":8181")
+	v.SetDefault("server.grpc.svc_address", ":8282")
+	v.SetDefault("server.grpc.reflection", false)
+	// TLS
+	v.SetDefault("server.tls.enable", false)
+	v.SetDefault("server.tls.cert", "")
+	v.SetDefault("server.tls.key", "")
 	// Redis
 	v.SetDefault("redis.dsn", "redis://localhost:6379/0")
 	v.SetDefault("redis.ttl.upload", defaultUploadSessionTTL)
@@ -193,6 +204,9 @@ func (app *App) setConfigDefaults() {
 	// Processor
 	v.SetDefault("processor.segment_duration", defaultSegmentDuration)
 	v.SetDefault("processor.video_check_period", defaultVideoCheckInterval)
+	// Media
+	v.SetDefault("media.user_quota.max_videos", defaultMaxVideos)
+	v.SetDefault("media.user_quota.max_size", defaultMaxSize)
 
 	v.SetEnvPrefix(envPrefix)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

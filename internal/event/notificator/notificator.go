@@ -2,11 +2,14 @@ package notificator
 
 import (
 	"context"
-	"sync"
-
-	"github.com/adwski/vidi/internal/api/video/http/client"
+	"fmt"
+	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
 	"github.com/adwski/vidi/internal/event"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"sync"
 )
 
 const (
@@ -18,7 +21,8 @@ const (
 //
 // TODO In the future could be replaced with actual message queue.
 type Notificator struct {
-	c      *client.Client
+	c      pb.VideoapiClient
+	authMD metadata.MD
 	logger *zap.Logger
 	evCh   chan *event.Event
 }
@@ -29,16 +33,17 @@ type Config struct {
 	VideoAPIToken string
 }
 
-func New(cfg *Config) *Notificator {
-	logger := cfg.Logger.With(zap.String("component", "notificator"))
+func New(cfg *Config) (*Notificator, error) {
+	cc, err := grpc.Dial(cfg.VideoAPIURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create vidi connection: %w", err)
+	}
 	return &Notificator{
-		logger: logger,
+		authMD: metadata.Pairs("authorization", cfg.VideoAPIToken),
+		logger: cfg.Logger.With(zap.String("component", "notificator")),
 		evCh:   make(chan *event.Event, defaultEventChannelLen),
-		c: client.New(&client.Config{
-			Logger:   logger,
-			Endpoint: cfg.VideoAPIURL,
-			Token:    cfg.VideoAPIToken,
-		})}
+		c:      pb.NewVideoapiClient(cc),
+	}, nil
 }
 
 func (n *Notificator) Send(ev *event.Event) {
@@ -55,28 +60,56 @@ Loop:
 			close(n.evCh)
 			break Loop
 		case ev := <-n.evCh:
-			n.processEvent(ev)
+			go n.processEvent(ctx, ev)
 		}
 	}
 	n.logger.Info("stopping")
 	for ev := range n.evCh {
-		n.processEvent(ev)
+		n.processEvent(ctx, ev)
 	}
 	n.logger.Info("stopped")
 }
 
-func (n *Notificator) processEvent(ev *event.Event) {
+func (n *Notificator) processEvent(ctx context.Context, ev *event.Event) {
 	n.logger.Debug("processing event", zap.Any("event", ev))
-	var err error
+
 	switch ev.Kind {
-	case event.KindUpdateStatus:
-		err = n.c.UpdateVideoStatus(ev.Video.ID, ev.Video.Status.String())
-	case event.KindUpdateStatusAndLocation:
-		err = n.c.UpdateVideo(ev.Video.ID, ev.Video.Status.String(), ev.Video.Location)
+	case event.KindVideoPartUploaded:
+		if ev.PartInfo == nil {
+			n.logger.Error("PartInfo is nil", zap.Int("kind", ev.Kind))
+			return
+		}
+	case event.KindUpdateStatus, event.KindUpdateStatusAndLocation:
+		if ev.VideoInfo == nil {
+			n.logger.Error("VideoInfo is nil", zap.Int("kind", ev.Kind))
+			return
+		}
 	default:
 		n.logger.Error("unknown event kind", zap.Int("kind", ev.Kind))
 		return
 	}
+
+	var err error
+	switch ev.Kind {
+	case event.KindVideoPartUploaded:
+		_, err = n.c.NotifyPartUpload(metadata.NewOutgoingContext(ctx, n.authMD), &pb.NotifyPartUploadRequest{
+			Num:      uint32(ev.PartInfo.Num),
+			VideoId:  ev.PartInfo.VideoID,
+			Checksum: ev.PartInfo.Checksum,
+		})
+	case event.KindUpdateStatus:
+		_, err = n.c.UpdateVideoStatus(metadata.NewOutgoingContext(ctx, n.authMD), &pb.UpdateVideoStatusRequest{
+			Id:     ev.VideoInfo.VideoID,
+			Status: int32(ev.VideoInfo.Status),
+		}, nil)
+	case event.KindUpdateStatusAndLocation:
+		_, err = n.c.UpdateVideo(metadata.NewOutgoingContext(ctx, n.authMD), &pb.UpdateVideoRequest{
+			Id:       ev.VideoInfo.VideoID,
+			Status:   int32(ev.VideoInfo.Status),
+			Location: ev.VideoInfo.Location,
+		}, nil)
+	}
+
 	if err != nil {
 		n.logger.Error("error while processing event", zap.Any("event", ev), zap.Error(err))
 	}

@@ -7,7 +7,6 @@ import (
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/session"
-	sessionStore "github.com/adwski/vidi/internal/session/store"
 )
 
 const (
@@ -20,15 +19,14 @@ func (svc *Service) GetQuotas(ctx context.Context, usr *user.User) (*model.UserS
 		return nil, errors.Join(model.ErrStorage, err)
 	}
 	return &model.UserStats{
-		VideosQuota: svc.Quotas.VideosPerUser,
+		VideosQuota: svc.quotas.VideosPerUser,
 		VideosUsage: usage.Videos,
-		SizeQuota:   svc.Quotas.MaxTotalSize,
+		SizeQuota:   svc.quotas.MaxTotalSize,
 		SizeUsage:   usage.Size,
 	}, nil
 }
 
 func (svc *Service) GetVideo(ctx context.Context, usr *user.User, vid string) (*model.Video, error) {
-	// TODO handle upload URL for upload resuming
 	video, err := svc.s.Get(ctx, vid, usr.ID)
 	if err != nil {
 		return nil, errors.Join(model.ErrStorage, err)
@@ -55,9 +53,18 @@ func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) 
 	if !video.IsReady() {
 		return "", model.ErrNotReady
 	}
-	sessID, err := svc.storeSessionAndReturnURL(ctx, video, svc.watchSessions)
+	var sessID string
+	sessID, err = svc.idGen.Get()
 	if err != nil {
-		return "", err
+		return "", errors.Join(errors.New("cannot generate watch session id"), err)
+	}
+	sess := &session.Session{
+		ID:       sessID,
+		VideoID:  video.ID,
+		Location: video.Location,
+	}
+	if err = svc.uploadSessions.Set(ctx, sess); err != nil {
+		return "", errors.Join(model.ErrSessionStorage, err)
 	}
 	return svc.getWatchURL(sessID), nil
 }
@@ -70,19 +77,24 @@ func (svc *Service) DeleteVideo(ctx context.Context, usr *user.User, vid string)
 	return nil
 }
 
-func (svc *Service) CreateVideo(ctx context.Context, usr *user.User) (*model.Video, error) {
+func (svc *Service) CreateVideo(ctx context.Context, usr *user.User, req *model.CreateRequest) (*model.Video, error) {
 	var (
-		vid string
 		err error
 	)
-	newVideo := model.NewVideoNoID(usr.ID)
+	newVideo := model.NewVideoNoID(usr.ID, req.Name, req.Size)
+	newVideo.UploadInfo = &model.UploadInfo{
+		Parts: req.Parts,
+	}
 
 	for i := 1; ; i++ {
-		vid, err = svc.idGen.Get()
+		newVideo.ID, err = svc.idGen.Get()
 		if err != nil {
 			return nil, errors.Join(errors.New("cannot generate video id"), err)
 		}
-		newVideo.ID = vid
+		newVideo.Location, err = svc.idGen.Get()
+		if err != nil {
+			return nil, errors.Join(errors.New("cannot generate location id"), err)
+		}
 		if err = svc.s.Create(ctx, newVideo); err == nil {
 			break
 		}
@@ -98,30 +110,13 @@ func (svc *Service) CreateVideo(ctx context.Context, usr *user.User) (*model.Vid
 		return nil, errors.Join(model.ErrStorage, err)
 	}
 
-	sessID, err := svc.storeSessionAndReturnURL(ctx, newVideo, svc.uploadSessions)
-	if err != nil {
-		return nil, err
-	}
-	newVideo.UploadURL = svc.getUploadURL(sessID)
-	return newVideo, nil
-}
-
-func (svc *Service) storeSessionAndReturnURL(
-	ctx context.Context,
-	vi *model.Video,
-	sessStore *sessionStore.Store,
-) (*session.Session, error) {
-	sessID, err := svc.idGen.Get()
-	if err != nil {
-		return nil, errors.Join(model.ErrInternal, err)
-	}
 	sess := &session.Session{
-		ID:       sessID,
-		VideoID:  vi.ID,
-		Location: vi.Location, // used for watch sessions
+		ID:      newVideo.Location,
+		VideoID: newVideo.ID,
 	}
-	if err = sessStore.Set(ctx, sess); err != nil {
+	if err = svc.uploadSessions.Set(ctx, sess); err != nil {
 		return nil, errors.Join(model.ErrSessionStorage, err)
 	}
-	return sess, nil
+	newVideo.UploadInfo.URL = svc.getUploadURL(sess.ID)
+	return newVideo, nil
 }

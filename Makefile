@@ -29,12 +29,6 @@ docker-dev-build:
 	docker compose up -d --build
 	docker ps
 
-.PHONY: docker-dev-build-svc
-docker-dev-build-svc:
-	cd docker/compose ;\
-	docker compose up -d --build $$BUILD_SVC
-	docker ps
-
 .PHONY: docker-dev-clean
 docker-dev-clean:
 	cd docker/compose ;\

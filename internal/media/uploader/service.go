@@ -2,17 +2,13 @@ package uploader
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
-	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"
 	"github.com/adwski/vidi/internal/media/store/s3"
-	"github.com/adwski/vidi/internal/session"
 	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -20,13 +16,12 @@ import (
 
 const (
 	internalError = "internal error"
+	sizeError     = "incorrect size"
 	notFoundError = "not found"
-
-	defaultMediaStoreArtifactName = "/artifact.mp4"
 )
 
 var (
-	contentTypeMP4 = []byte("video/mp4")
+	contentTypeMP4 = []byte("application/x-vidi-mediapart")
 	methodPOST     = []byte("POST")
 )
 
@@ -39,7 +34,6 @@ type Service struct {
 	mediaS       *s3.Store
 	notificator  *notificator.Notificator
 	s3pathPrefix []byte
-	s3pathSuffix []byte
 	uriPrefixLen int
 }
 
@@ -72,7 +66,6 @@ func New(cfg *Config) (*Service, error) {
 	return &Service{
 		uriPrefixLen: len(cfg.URIPathPrefix),
 		s3pathPrefix: []byte(fmt.Sprintf("%s/", strings.TrimSuffix(cfg.S3PathPrefix, "/"))),
-		s3pathSuffix: []byte(defaultMediaStoreArtifactName),
 		logger:       cfg.Logger.With(zap.String("component", "uploader")),
 		sessS:        cfg.SessionStorage,
 		mediaS:       s3Store,
@@ -93,9 +86,9 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	sessID, err := svc.getSessionIDFromRequestURI(ctx.Request.RequestURI())
+	sessID, partNum, err := svc.getParamsFromURI(ctx.Request.RequestURI())
 	if err != nil {
-		svc.logger.Debug("cannot get session from uri", zap.Error(err))
+		svc.logger.Debug("cannot params from uri", zap.Error(err))
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 		return
 	}
@@ -108,8 +101,7 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Retrieve session
-	// TODO should we also update session TTL if upload size is significant?
-	sess, errSess := svc.sessS.Get(ctx, sessID)
+	sess, errSess := svc.sessS.Get(ctx, string(sessID))
 	if errSess != nil {
 		if errors.Is(errSess, sessionStore.ErrNotFound) {
 			ctx.Error(notFoundError, fasthttp.StatusNotFound)
@@ -120,87 +112,55 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	// validate size
+	if uint64(size) > sess.PartSize {
+		svc.logger.Error("content size is greater than part size",
+			zap.Int("size", size),
+			zap.Uint64("partSize", sess.PartSize))
+		ctx.Error(sizeError, fasthttp.StatusBadRequest)
+		return
+	}
+
 	// --------------------------------------------------
 	// Request is valid and session exists
 	// Proceed with upload
 	// --------------------------------------------------
-	svc.notificator.Send(&event.Event{ // send uploading event
-		Video: video.Video{
-			ID:     sess.VideoID,
-			Status: video.StatusUploading,
-		},
-		Kind: event.KindUpdateStatus,
-	})
-
-	if err = svc.pipeBodyToS3(ctx, sess, size); err != nil {
+	artifactName := svc.getUploadArtifactName(sessID, partNum)
+	buf := bytes.NewBuffer(ctx.Request.Body())
+	if err = svc.mediaS.Put(ctx, artifactName, buf, int64(size)); err != nil {
+		svc.logger.Error("error while uploading artifact",
+			zap.Int("size", size),
+			zap.Uint64("partSize", sess.PartSize))
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
+	checksum, err := svc.mediaS.GetChecksumSHA256(ctx, artifactName)
+	if err != nil {
+		svc.logger.Error("cannot get artifact checksum",
+			zap.Error(err),
+			zap.String("artifact", artifactName))
+		ctx.Error(internalError, fasthttp.StatusInternalServerError)
+	}
 	ctx.SetStatusCode(fasthttp.StatusNoContent)
+
 	// --------------------------------------------------
 	// Postprocessing phase
 	// --------------------------------------------------
-	go svc.postProcess(sess)
-}
-
-func (svc *Service) pipeBodyToS3(ctx *fasthttp.RequestCtx, sess *session.Session, size int) error {
-	defer func() {
-		if errC := ctx.Request.CloseBodyStream(); errC != nil {
-			svc.logger.Error("error while closing body stream", zap.Error(errC))
-		}
-	}()
-
-	// Manually pipe data streams because there's no native way
-	// to do it using fasthttp and s3 client together.
-	var (
-		r, w                        = io.Pipe()
-		done                        = make(chan struct{})
-		errPut, errBody, errR, errW error
-	)
-	go func() {
-		if errPut = svc.mediaS.Put(ctx, svc.getUploadArtifactName(sess), r, int64(size)); errPut != nil {
-			svc.logger.Error("error while uploading artifact", zap.Error(errPut))
-		}
-		if errR = r.Close(); errR != nil {
-			svc.logger.Error("error closing pipe reader", zap.Error(errR))
-		}
-		done <- struct{}{}
-	}()
-	go func() {
-		if errBody = ctx.Request.BodyWriteTo(w); errBody != nil {
-			svc.logger.Error("error while reading body", zap.Error(errBody))
-		}
-		if errW = w.Close(); errW != nil {
-			svc.logger.Error("error closing pipe writer", zap.Error(errW))
-		}
-		done <- struct{}{}
-	}()
-	<-done
-	<-done
-	if errPut != nil || errBody != nil || errR != nil || errW != nil {
-		return errors.New("pipe error")
-	}
-	return nil
-}
-
-func (svc *Service) postProcess(sess *session.Session) {
-	// Send uploaded event
-	// TODO Should we also send error status event in case of upload error
-	//      or allow user to retry upload?
-	svc.notificator.Send(&event.Event{
-		Video: video.Video{
-			ID:       sess.VideoID,
-			Status:   video.StatusUploaded,
-			Location: sess.ID,
+	go svc.notificator.Send(&event.Event{
+		PartInfo: &event.PartInfo{
+			VideoID:  sess.VideoID,
+			Checksum: checksum,
+			Num:      parseUint(partNum), // getParamsFromURI ensures that partNum contains valid number
 		},
-		Kind: event.KindUpdateStatusAndLocation,
+		Kind: event.KindVideoPartUploaded,
 	})
-	if err := svc.sessS.Delete(context.Background(), sess.ID); err != nil {
-		svc.logger.Error("error while deleting session",
-			zap.Any("session", sess),
-			zap.Error(err))
-		return
+}
+
+func parseUint(b []byte) (num uint) {
+	for _, ch := range b {
+		num = num*10 + uint(ch-'0')
 	}
+	return
 }
 
 func checkHeader(ctx *fasthttp.RequestCtx) (int, error) {
@@ -216,20 +176,38 @@ func checkHeader(ctx *fasthttp.RequestCtx) (int, error) {
 	return cLength, nil
 }
 
-func (svc *Service) getUploadArtifactName(sess *session.Session) string {
-	var b []byte
-	return string(append(append(append(b, svc.s3pathPrefix...), []byte(sess.ID)...), svc.s3pathSuffix...))
+func (svc *Service) getUploadArtifactName(sessID, partNum []byte) string {
+	b := make([]byte, 0, len(svc.s3pathPrefix)+len(sessID)+len(partNum)+1)
+	b = append(b, svc.s3pathPrefix...)
+	b = append(b, sessID...)
+	b = append(b, '/')
+	b = append(b, partNum...)
+	return string(b)
 }
 
-func (svc *Service) getSessionIDFromRequestURI(uri []byte) (string, error) {
-	// URI: /prefix/<session-id>
+func (svc *Service) getParamsFromURI(uri []byte) ([]byte, []byte, error) {
+	// URI: /prefix/<upload-session-id>/<partNum>
 	if svc.uriPrefixLen >= len(uri) {
-		return "", errors.New("request uri is less than configured prefix")
+		return nil, nil, errors.New("request uri is less than configured prefix")
 	}
-	sessID := uri[svc.uriPrefixLen+1:]
-	idx := bytes.IndexByte(sessID, '/')
-	if idx != -1 {
-		return "", errors.New("invalid uri")
+	sessAndNum := uri[svc.uriPrefixLen+1:]
+	idx := bytes.IndexByte(sessAndNum, '/')
+	if idx <= 0 {
+		return nil, nil, errors.New("invalid uri")
 	}
-	return string(sessID), nil
+	sessID := sessAndNum[:idx]
+	partNum := sessAndNum[idx+1:]
+	if !isNumber(partNum) {
+		return nil, nil, errors.New("num is not a number")
+	}
+	return sessID, partNum, nil
+}
+
+func isNumber(b []byte) bool {
+	for _, ch := range b {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
 }

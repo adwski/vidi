@@ -87,13 +87,18 @@ func (srv *Server) createVideo(c echo.Context) error {
 	if !ok {
 		return err
 	}
-	vide, err := srv.videoSvc.CreateVideo(c.Request().Context(), usr)
+	var req model.CreateRequest
+	if err = c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, common.ResponseIncorrectParams)
+	}
+	vide, err := srv.videoSvc.CreateVideo(c.Request().Context(), usr, &req)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 	}
 	return c.JSON(http.StatusCreated, httpmodel.NewVideoResponse(vide))
 }
 
+/*
 func (srv *Server) updateVideoStatus(c echo.Context) error {
 	if err := srv.serviceAuth(c); err != nil {
 		return err
@@ -150,3 +155,4 @@ func (srv *Server) searchVideos(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, videos)
 }
+*/

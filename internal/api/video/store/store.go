@@ -45,15 +45,70 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 	}, nil
 }
 
+func (s *Store) DeleteUploadedParts(ctx context.Context, vid string) error {
+	query := `delete from uploaded_parts where video_id = $1`
+	_, err := s.Pool().Exec(ctx, query, vid)
+	if err != nil {
+		return handleDBErr(err)
+	}
+	return nil
+}
+
+func (s *Store) UpdatePart(ctx context.Context, vid string, part *model.Part) error {
+	// TODO: may be make all this single pg transaction?
+	query := `update upload_parts set status = $1 where video_id = $2 and num = $3 and checksum = $4`
+	tag, err := s.Pool().Exec(ctx, query, model.PartStatusOK, vid, part.Num, part.Checksum)
+	if err != nil {
+		return handleDBErr(err)
+	}
+	if tag.RowsAffected() == 0 {
+		// checksum was not ok
+		// change status to invalid
+		query = `update upload_parts set status = $1 where video_id = $2 and num = $3`
+		tag, err = s.Pool().Exec(ctx, query, model.PartStatusInvalid, vid, part.Num)
+		if err != nil {
+			return handleDBErr(err)
+		}
+		return nil
+	}
+
+	// check if all parts are ok
+	var notOkCnt uint
+	query = `select count(*) as cnt from upload_parts where video_id = $1 and status != $2`
+	if err = s.Pool().QueryRow(ctx, query, vid, model.PartStatusOK).Scan(&notOkCnt); err != nil {
+		return handleDBErr(err)
+	}
+
+	if notOkCnt != 0 {
+		// some parts are not ok
+		return nil
+	}
+
+	// all parts are ok, update video status
+	query = `update videos set status = $2 where id = $1`
+	tag, err = s.Pool().Exec(ctx, query, vid, model.StatusUploaded)
+	return handleTagOneRowAndErr(&tag, err)
+}
+
 func (s *Store) Usage(ctx context.Context, userID string) (*model.UserUsage, error) {
-	// TODO query usage
-	return &model.UserUsage{}, nil
+	usage := &model.UserUsage{}
+	query := `select count(*) as v_count, sum(size) as v_size from videos where user_id = $1`
+	if err := s.Pool().QueryRow(ctx, query, userID).Scan(&usage.Videos, &usage.Size); err != nil {
+		return nil, handleDBErr(err)
+	}
+	return usage, nil
 }
 
 func (s *Store) Create(ctx context.Context, vi *model.Video) error {
-	query := `insert into videos (id, user_id, status, created_at) values ($1, $2, $3, $4)`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt)
-	return handleTagOneRowAndErr(&tag, err)
+	batch := &pgx.Batch{}
+	batch.Queue(`insert into videos (id, user_id, status, created_at, name, size)
+		values ($1, $2, $3, $4, $5, $6)`, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt, vi.Name, vi.Size)
+	for _, p := range vi.UploadInfo.Parts {
+		batch.Queue(`insert into upload_parts (num, video_id, checksum, size)
+			values($1, $2, $3, $4)`, p.Num, vi.ID, p.Checksum, p.Size)
+	}
+	err := s.Pool().SendBatch(ctx, batch).Close()
+	return handleDBErr(err)
 }
 
 func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error) {
@@ -62,6 +117,24 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status, &vi.CreatedAt); err != nil {
 		return nil, handleDBErr(err)
 	}
+
+	query = `select num, status, size, checksum from upload_parts where video_id = $1`
+	rows, err := s.Pool().Query(ctx, query, id, userID)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, handleDBErr(err)
+		}
+		// no upload parts info
+		return vi, nil
+	}
+	vi.UploadInfo = &model.UploadInfo{}
+	vi.UploadInfo.Parts, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.Part, error) {
+		var part model.Part
+		if err = row.Scan(&part.Num, &part.Status, &part.Size, &part.Checksum); err != nil {
+			return part, fmt.Errorf("error while scanning row: %w", err)
+		}
+		return part, nil
+	})
 	return vi, nil
 }
 

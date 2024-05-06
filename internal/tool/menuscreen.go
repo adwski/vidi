@@ -25,6 +25,21 @@ type (
 	}
 )
 
+func (mmc mainMenuControl) String() string {
+	switch mmc.option {
+	case mainMenuOptionSwitchUser:
+		return "switch user"
+	case mainMenuOptionVideos:
+		return "videos"
+	case mainMenuOptionUpload:
+		return "upload"
+	case mainMenuOptionQuotas:
+		return "quota"
+	default:
+		return "unknown"
+	}
+}
+
 func newMainMenuScreen(user string) *sMainMenu {
 	smm := &sMainMenu{}
 	f := huh.NewForm(
@@ -38,6 +53,7 @@ func newMainMenuScreen(user string) *sMainMenu {
 					huh.NewOption("Quotas", mainMenuOptionQuotas),
 					huh.NewOption("Switch User", mainMenuOptionSwitchUser),
 				).Value(&smm.option),
+			//huh.NewConfirm(),
 		),
 	).WithTheme(defaultHuhTheme)
 	smm.form = f

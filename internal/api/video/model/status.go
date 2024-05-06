@@ -19,23 +19,33 @@ const (
 
 type Status int
 
-var statusNames = map[Status]string{
-	StatusError:      "error",
-	StatusCreated:    "created",
-	StatusUploading:  "uploading",
-	StatusUploaded:   "uploaded",
-	StatusProcessing: "processing",
-	StatusReady:      "ready",
-}
+var (
+	ErrIncorrectStatusName = errors.New("incorrect status name")
+	ErrIncorrectStatusNum  = errors.New("incorrect status number")
 
-var statusFromName = make(map[string]Status)
+	statusNames = map[Status]string{
+		StatusError:      "error",
+		StatusCreated:    "created",
+		StatusUploading:  "uploading",
+		StatusUploaded:   "uploaded",
+		StatusProcessing: "processing",
+		StatusReady:      "ready",
+	}
 
-var ErrIncorrectStatusName = errors.New("incorrect status name")
+	statusFromName = make(map[string]Status)
+)
 
 func init() {
 	for k, v := range statusNames {
 		statusFromName[v] = k
 	}
+}
+
+func ValidateStatus(status Status) error {
+	if _, ok := statusNames[status]; ok {
+		return nil
+	}
+	return ErrIncorrectStatusNum
 }
 
 func GetStatusFromName(name string) (Status, error) {

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	greetMessage = "// Welcome to Vidi terminal tool //"
+	greetMessage = " ░▒▓█ Welcome to Vidi terminal tool █▓▒░ "
 )
 
 var (

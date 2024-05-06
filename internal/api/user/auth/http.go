@@ -63,6 +63,6 @@ func (a *Auth) CookieForUser(user *model.User) (*http.Cookie, error) {
 		Value:   token,
 		Domain:  a.domain,
 		Expires: a.expirationTime(),
-		Secure:  a.https,
+		Secure:  a.secureCookie,
 	}, nil
 }

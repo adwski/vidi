@@ -24,14 +24,14 @@ type Auth struct {
 	domain        string
 	secret        []byte
 	expiration    time.Duration
-	https         bool
+	secureCookie  bool
 }
 
 type Config struct {
-	Secret     string
-	Domain     string
-	HTTPS      bool
-	Expiration time.Duration
+	Secret       string
+	Domain       string
+	SecureCookie bool
+	Expiration   time.Duration
 }
 
 func NewAuth(cfg *Config) (*Auth, error) {
@@ -43,7 +43,7 @@ func NewAuth(cfg *Config) (*Auth, error) {
 		secret:        []byte(cfg.Secret),
 		expiration:    cfg.Expiration,
 		domain:        cfg.Domain,
-		https:         cfg.HTTPS,
+		secureCookie:  cfg.SecureCookie,
 	}, nil
 }
 

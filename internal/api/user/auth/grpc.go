@@ -10,13 +10,13 @@ import (
 type ctxKey int
 
 const (
-	tokenHeaderField = "bearer"
+	authScheme = "bearer"
 
 	ctxKeyClaims ctxKey = iota
 )
 
 func (a *Auth) GRPCAuthFunc(ctx context.Context) (context.Context, error) {
-	token, err := auth.AuthFromMD(ctx, tokenHeaderField)
+	token, err := auth.AuthFromMD(ctx, authScheme)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "missing token")
 	}

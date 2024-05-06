@@ -20,7 +20,7 @@ type Store struct {
 }
 
 func (s *Store) Put(ctx context.Context, name string, r io.Reader, size int64) error {
-	info, err := s.client.PutObject(ctx, s.bucket, name, r, size, minio.PutObjectOptions{})
+	info, err := s.client.PutObject(ctx, s.bucket, name, r, size, minio.PutObjectOptions{DisableMultipart: true})
 	if err != nil {
 		return fmt.Errorf("cannot store object in s3: %w", err)
 	}
@@ -45,4 +45,15 @@ func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, err
 		return nil, 0, fmt.Errorf("cannot get object stats: %w", errS)
 	}
 	return obj, stat.Size, nil
+}
+
+func (s *Store) GetChecksumSHA256(ctx context.Context, name string) (string, error) {
+	info, err := s.client.StatObject(ctx, s.bucket, name, minio.StatObjectOptions{})
+	if err != nil {
+		er := minio.ToErrorResponse(err)
+		if er.StatusCode == http.StatusNotFound {
+			return "", store.ErrNotFount
+		}
+	}
+	return info.ChecksumSHA256, nil
 }

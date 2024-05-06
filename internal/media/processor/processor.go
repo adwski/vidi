@@ -96,21 +96,14 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 	p.logger.Info("got videos for processing", zap.Int("count", len(videos)))
 
 	for _, v := range videos {
-		p.notificator.Send(&event.Event{
-			Video: video.Video{
-				ID:     v.ID,
-				Status: video.StatusProcessing,
-			},
-			Kind: event.KindUpdateStatus,
-		})
 		if err = p.processVideo(ctx, v); err != nil {
 			// TODO In the future we should distinguish between errors caused by video content
 			//  and any other error. For example i/o errors are related to other failures
 			//  and in such cases video processing could be retried later. (So we need retry mechanism).
 			p.notificator.Send(&event.Event{
-				Video: video.Video{
-					ID:     v.ID,
-					Status: video.StatusError,
+				VideoInfo: &event.VideoInfo{
+					VideoID: v.ID,
+					Status:  int(video.StatusError),
 				},
 				Kind: event.KindUpdateStatus,
 			})
@@ -124,9 +117,9 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 			zap.String("id", v.ID),
 			zap.String("location", v.Location))
 		p.notificator.Send(&event.Event{
-			Video: video.Video{
-				ID:     v.ID,
-				Status: video.StatusReady,
+			VideoInfo: &event.VideoInfo{
+				VideoID: v.ID,
+				Status:  int(video.StatusError),
 			},
 			Kind: event.KindUpdateStatus,
 		})

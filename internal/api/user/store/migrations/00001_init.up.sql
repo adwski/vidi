@@ -8,6 +8,7 @@ CREATE TABLE users (
                       CONSTRAINT id_not_empty CHECK (id != ''),
                       CONSTRAINT name_not_empty CHECK (name != ''),
                       CONSTRAINT hash_not_empty CHECK (hash != '')
+
 );
 
 CREATE UNIQUE INDEX users_id ON users (id);

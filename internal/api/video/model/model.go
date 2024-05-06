@@ -20,30 +20,45 @@ var (
 )
 
 type Video struct {
-	CreatedAt time.Time `json:"created_at"`
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Location  string    `json:"loc,omitempty"`
-	Status    Status    `json:"status,omitempty"`
-	UploadURL string    `json:"upload_url,omitempty"`
+	CreatedAt  time.Time   `json:"created_at"`
+	ID         string      `json:"id"`
+	UserID     string      `json:"user_id"`
+	Name       string      `json:"name"`
+	Location   string      `json:"location,omitempty"`
+	Status     Status      `json:"status,omitempty"`
+	Size       uint64      `json:"size,omitempty"`
+	UploadInfo *UploadInfo `json:"upload_info,omitempty"`
+}
+
+type UploadInfo struct {
+	URL   string `json:"url"`
+	Parts []Part `json:"parts"`
 }
 
 type UserStats struct {
-	VideosQuota int   `json:"videos_quota"`
-	VideosUsage int   `json:"videos_usage"`
-	SizeQuota   int64 `json:"size_total"`
-	SizeUsage   int64 `json:"size_usage"`
+	SizeQuota   uint64 `json:"size_total"`
+	SizeUsage   uint64 `json:"size_usage"`
+	VideosQuota uint   `json:"videos_quota"`
+	VideosUsage uint   `json:"videos_usage"`
 }
 
 type UserUsage struct {
-	Videos int
-	Size   int64
+	Videos uint
+	Size   uint64
 }
 
-func NewVideoNoID(userID string) *Video {
+type CreateRequest struct {
+	Name  string `json:"name"`
+	Size  uint64 `json:"size_total"`
+	Parts []Part `json:"parts"`
+}
+
+func NewVideoNoID(userID, name string, size uint64) *Video {
 	return &Video{
 		CreatedAt: time.Now().In(time.UTC),
 		UserID:    userID,
+		Name:      name,
+		Size:      size,
 		Status:    StatusCreated,
 	}
 }

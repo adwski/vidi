@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"github.com/adwski/vidi/internal/api/requestid"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
@@ -38,7 +37,7 @@ type Server struct {
 // Config is videoapi GRPC server config.
 type Config struct {
 	Logger     *zap.Logger
-	AuthConfig auth.Config
+	Auth       *auth.Auth
 	ListenAddr string
 	TLSConfig  *tls.Config
 	Reflection bool
@@ -46,12 +45,11 @@ type Config struct {
 
 // NewServer creates videoapi GRPC server.
 func NewServer(cfg *Config, registerFunc func(s grpc.ServiceRegistrar)) (*Server, error) {
-	authenticator, err := auth.NewAuth(&cfg.AuthConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot configure authenticator: %w", err)
-	}
 	if registerFunc == nil {
 		return nil, errors.New("registerFunc cannot be nil")
+	}
+	if cfg.Auth == nil {
+		return nil, errors.New("authenticator cannot be nil")
 	}
 
 	// Server params
@@ -70,11 +68,11 @@ func NewServer(cfg *Config, registerFunc func(s grpc.ServiceRegistrar)) (*Server
 		// deadline
 		grpc.ChainUnaryInterceptor(interceptorDeadline(defaultRPCTimeout)),
 		// auth
-		grpc.ChainUnaryInterceptor(grpcauth.UnaryServerInterceptor(authenticator.GRPCAuthFunc)),
+		grpc.ChainUnaryInterceptor(grpcauth.UnaryServerInterceptor(cfg.Auth.GRPCAuthFunc)),
 	)
 
 	s := &Server{
-		logger:       cfg.Logger.With(zap.String("component", "grpc-server")),
+		logger:       cfg.Logger,
 		registerFunc: registerFunc,
 		opts:         opts,
 		addr:         cfg.ListenAddr,
@@ -87,7 +85,7 @@ func NewServer(cfg *Config, registerFunc func(s grpc.ServiceRegistrar)) (*Server
 // It should be started asynchronously and canceled via context.
 // Error channel should be used to catch listen errors.
 // If error is caught that means server is no longer running.
-func (srv *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan error) {
+func (srv *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error) {
 	defer wg.Done()
 
 	listener, err := net.Listen("tcp", srv.addr)

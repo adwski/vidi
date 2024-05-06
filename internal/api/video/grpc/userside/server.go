@@ -1,4 +1,4 @@
-package user
+package userside
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video"
 	g "github.com/adwski/vidi/internal/api/video/grpc"
-	"github.com/adwski/vidi/internal/api/video/grpc/user/pb"
+	"github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,21 +17,23 @@ import (
 )
 
 type Server struct {
-	*pb.UnimplementedVideoapiServer
+	*pb.UnimplementedUsersideapiServer
 	*g.Server
 	logger   *zap.Logger
 	videoSvc *video.Service
 }
 
-func NewServer(cfg *g.Config) (*Server, error) {
+func NewServer(cfg *g.Config, videoSvc *video.Service) (*Server, error) {
+	cfg.Logger = cfg.Logger.With(zap.String("component", "userside-srv"))
 	var (
 		err error
 		srv = &Server{
-			logger: cfg.Logger.With(zap.String("component", "videoapi-grpc-server")),
+			logger:   cfg.Logger,
+			videoSvc: videoSvc,
 		}
 	)
 	if srv.Server, err = g.NewServer(cfg, func(s grpc.ServiceRegistrar) {
-		pb.RegisterVideoapiServer(s, srv)
+		pb.RegisterUsersideapiServer(s, srv)
 	}); err != nil {
 		return nil, fmt.Errorf("cannot create grpc server: %w", err)
 	}
@@ -51,8 +53,8 @@ func (srv *Server) GetQuota(ctx context.Context, _ *pb.GetQuotaRequest) (*pb.Quo
 	return &pb.QuotaResponse{
 		SizeQuota:   stats.SizeQuota,
 		SizeUsage:   stats.SizeUsage,
-		VideosQuota: int32(stats.VideosQuota),
-		VideosUsage: int32(stats.VideosUsage),
+		VideosQuota: uint32(stats.VideosQuota),
+		VideosUsage: uint32(stats.VideosUsage),
 	}, nil
 }
 
@@ -63,7 +65,19 @@ func (srv *Server) CreateVideo(ctx context.Context, req *pb.CreateVideoRequest) 
 	if err != nil {
 		return nil, err
 	}
-	vide, err := srv.videoSvc.CreateVideo(ctx, usr)
+	var r = &model.CreateRequest{
+		Name:  req.Name,
+		Size:  req.Size,
+		Parts: make([]model.Part, 0, len(req.Parts)),
+	}
+	for _, p := range req.Parts {
+		r.Parts = append(r.Parts, model.Part{
+			Num:      uint(p.Num),
+			Size:     p.Size,
+			Checksum: p.Checksum,
+		})
+	}
+	vide, err := srv.videoSvc.CreateVideo(ctx, usr, r)
 	if err != nil {
 		srv.logger.Error("CreateVideo failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "cannot create video")
@@ -125,7 +139,7 @@ func videoResponse(v *model.Video) *pb.VideoResponse {
 		Id:        v.ID,
 		Status:    v.Status.String(),
 		CreatedAt: v.CreatedAt.String(),
-		UploadUrl: v.UploadURL,
+		UploadUrl: v.UploadInfo.URL,
 	}
 }
 

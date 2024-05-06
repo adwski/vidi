@@ -13,7 +13,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 	"net/http"
-	"strings"
 )
 
 type Server struct {
@@ -24,53 +23,49 @@ type Server struct {
 
 type Config struct {
 	Logger     *zap.Logger
-	AuthConfig auth.Config
+	Auth       *auth.Auth
 	APIPrefix  string
 	HTTPConfig *server.Config
 }
 
 func NewServer(cfg *Config, videoSvc *video.Service) (*Server, error) {
-	var (
-		apiPrefix          = strings.TrimRight(cfg.APIPrefix, "/")
-		authenticator, err = auth.NewAuth(&cfg.AuthConfig)
-	)
+	if cfg.Auth == nil {
+		return nil, errors.New("authenticator cannot be nil")
+	}
+
+	// spawn server
+	httpSrv, err := server.NewServer(cfg.HTTPConfig)
 	if err != nil {
-		return nil, fmt.Errorf("cannot configure authenticator: %w", err)
+		return nil, fmt.Errorf("cannot configure http server: %w", err)
+	}
+
+	srv := &Server{
+		logger:   cfg.Logger.With(zap.String("component", "http-api")),
+		Server:   httpSrv,
+		videoSvc: videoSvc,
 	}
 
 	// echo router with preconfigured middleware
 	e := apihttp.GetEchoWithDefaultMiddleware()
 
-	srv := &Server{
-		logger:   cfg.Logger.With(zap.String("component", "http-api")),
-		videoSvc: videoSvc,
-	}
+	// Common api prefix, i.e. /api
+	api := e.Group(cfg.APIPrefix)
 
-	// spawn server
-	if srv.Server, err = server.NewServer(cfg.HTTPConfig); err != nil {
-		return nil, fmt.Errorf("cannot configure http server: %w", err)
-	}
+	// Video zone
+	videoAPI := api.Group("/video")
+	videoAPI.Use(cfg.Auth.EchoAuthUserSide())
+	videoAPI.GET("/:id", srv.getVideo)
+	videoAPI.GET("/", srv.getVideos)
+	videoAPI.POST("/", srv.createVideo)
+	videoAPI.DELETE("/:id", srv.deleteVideo)
 
-	// Common api prefix, i.e. /api/video
-	api := e.Group(apiPrefix)
+	// Watch zone
+	watchAPI := api.Group("/watch")
+	watchAPI.POST("/:id", srv.watchVideo)
 
-	// User zone
-	userAPI := api.Group("/user")
-	userAPI.Use(authenticator.EchoAuthUserSide())
-	userAPI.GET("/:id", srv.getVideo)
-	userAPI.GET("/", srv.getVideos)
-	userAPI.POST("/", srv.createVideo)
-	userAPI.POST("/:id/watch", srv.watchVideo)
-	userAPI.DELETE("/:id", srv.deleteVideo)
+	// Quota zone
 	quotaAPI := api.Group("/quota")
 	quotaAPI.GET("/", srv.getQuota)
-
-	// Service zone
-	serviceAPI := api.Group("/service")
-	serviceAPI.Use(authenticator.EchoAuthServiceSide())
-	serviceAPI.PUT("/:id/status/:status", srv.updateVideoStatus)
-	serviceAPI.PUT("/:id", srv.updateVideo)
-	serviceAPI.POST("/search", srv.searchVideos)
 
 	srv.SetHandler(e)
 	return srv, nil

@@ -2,15 +2,17 @@ syntax = "proto3";
 
 package videoapi;
 
-option go_package="internal/api/video/grpc/service/pb;pb";
+option go_package="internal/api/video/grpc/serviceside/pb;pb";
 
-service videoapi {
+service servicesideapi {
   rpc GetVideosByStatus(GetByStatusRequest) returns (VideoListResponse);
   rpc UpdateVideo(UpdateVideoRequest) returns (UpdateVideoResponse);
+  rpc UpdateVideoStatus(UpdateVideoStatusRequest) returns (UpdateVideoStatusResponse);
+  rpc NotifyPartUpload(NotifyPartUploadRequest) returns (NotifyPartUploadResponse);
 }
 
 message GetByStatusRequest {
-  string status = 1;
+  int32 status = 1;
 }
 
 message VideoListResponse{
@@ -19,15 +21,30 @@ message VideoListResponse{
 
 message Video {
   string id = 1;
-  string status = 2;
-  string created_at = 3;
+  int32 status = 2;
+  uint64 created_at = 3;
 }
 
 message UpdateVideoRequest {
   string id = 1;
-  string status = 2;
   string location = 3;
+  int32 status = 2;
   bytes playback_meta = 4;
 }
 
 message UpdateVideoResponse {}
+
+message UpdateVideoStatusRequest {
+  string id = 1;
+  int32 status = 2;
+}
+
+message UpdateVideoStatusResponse{}
+
+message NotifyPartUploadRequest {
+  string video_id = 1;
+  uint32 num = 2;
+  string checksum = 4;
+}
+
+message NotifyPartUploadResponse {}

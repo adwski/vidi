@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	userapi "github.com/adwski/vidi/internal/api/user/client"
-	videoapi "github.com/adwski/vidi/internal/api/video/grpc/user/pb"
+	videoapi "github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"github.com/adwski/vidi/internal/logging"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/enescakir/emoji"
@@ -94,10 +94,8 @@ func (t *Tool) Init() tea.Cmd {
 // state changes according to control data returned by views.
 // It's part of bubbletea Model interface.
 func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch m := msg.(type) {
-	case tea.KeyMsg:
-		switch keypress := m.String(); keypress {
-		case "ctrl+c":
+	if m, ok := msg.(tea.KeyMsg); ok {
+		if m.String() == "ctrl+c" {
 			t.quitting = true
 			return t, tea.Quit
 		}
@@ -206,8 +204,9 @@ func (t *Tool) cycleViews() {
 		// - provide option to register or login as new user
 		err := t.state.checkToken()
 		if err == nil {
-			// token is valid, can use current user
-			t.screen = newMainMenuScreen(t.state.getCurrentUserUnsafe().Name)
+			// token is valid
+			// proceed to main flow screens
+			t.mainFlow()
 		} else {
 			// token is invalid
 			t.logger.Debug("token check error", zap.Error(err))
@@ -216,23 +215,25 @@ func (t *Tool) cycleViews() {
 				// proceed to reLog screen with selected user
 				t.screen = newReLogScreen(t.state.getCurrentUserUnsafe().Name)
 			} else {
-				// main flow screens
-				t.mainFlow()
+				t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
+				t.logger.Debug("menu screen")
 			}
 		}
 	}
-	t.enterCreds = false // reset flag
+	t.enterCreds = false // reset creds flag
 	t.logger.Debug("cycling screens", zap.Any("screen", t.screen.name()))
 }
 
 func (t *Tool) mainFlow() {
+	t.logger.Debug("main flow", zap.Bool("videoScreen", t.videosScreen))
 	switch {
 	case t.videosScreen:
 		// videos screen
 		t.screen = newVideosScreen(t.state.getCurrentUserUnsafe().Videos)
+		t.logger.Debug("videos screen")
 	default:
 		// Main menu
-		t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
+		t.screen = newMainMenuScreen(t.state.getCurrentUserUnsafe().Name)
 	}
 }
 
@@ -269,7 +270,10 @@ func (t *Tool) initClients(ep string) error {
 	if !cp.AppendCertsFromPEM(rCfg.vidiCA) {
 		return fmt.Errorf("credentials: failed to append certificates")
 	}
-	creds := credentials.NewTLS(&tls.Config{RootCAs: cp})
+	creds := credentials.NewTLS(&tls.Config{
+		MinVersion: tls.VersionTLS13,
+		RootCAs:    cp,
+	})
 	cc, err := grpc.Dial(rCfg.VideoAPIURL, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("cannot create vidi connection: %w", err)
@@ -277,7 +281,7 @@ func (t *Tool) initClients(ep string) error {
 	t.videoapi = videoapi.NewVideoapiClient(cc)
 
 	// Persist endpoint, since no more errors can be caught
-	// before we start making actual requests
+	// until we start making actual requests
 	t.state.Endpoint = ep
 	if err = t.state.persist(); err != nil {
 		return fmt.Errorf("cannot persist state: %w", err)
@@ -318,8 +322,7 @@ type (
 	// outerControl is control structure returned by finished screen.
 	// It contains data necessary to continue screen cycle.
 	outerControl struct {
-		data     interface{}
-		finished bool
+		data interface{}
 	}
 )
 
@@ -335,7 +338,9 @@ func (oc *outerControl) String() string {
 	case reLogControl:
 		msg = "reLog control"
 	case userSelectControl:
-		msg = "userSelectControl control: " + t.String()
+		msg = "userSelectControl: " + t.String()
+	case mainMenuControl:
+		msg = "mainMenuControl: " + t.String()
 	}
 	return msg
 }

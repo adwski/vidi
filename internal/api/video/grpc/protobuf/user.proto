@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package videoapi;
 
-option go_package="internal/api/video/grpc/user/pb;pb";
+option go_package="internal/api/video/grpc/userside/pb;pb";
 
-service videoapi {
+service usersideapi {
   rpc GetQuota(GetQuotaRequest) returns (QuotaResponse);
   rpc CreateVideo(CreateVideoRequest) returns (VideoResponse);
   rpc GetVideo(VideoRequest) returns (VideoResponse);
@@ -15,20 +15,22 @@ service videoapi {
 message GetQuotaRequest {}
 
 message QuotaResponse {
-  int64 size_quota = 1;
-  int64 size_usage = 3;
-  int32 videos_quota = 2;
-  int32 videos_usage = 4;
+  uint64 size_quota = 1;
+  uint64 size_usage = 3;
+  uint32 videos_quota = 2;
+  uint32 videos_usage = 4;
 }
 
 message CreateVideoRequest {
-  int64 size = 1;
-  repeated VideoPart parts = 2;
+  uint64 size = 1;
+  string name = 2;
+  repeated VideoPart parts = 3;
 }
 
 message VideoPart {
-  int32 id = 1;
-  int64 size = 2;
+  uint32 num = 1;
+  uint64 size = 2;
+  string checksum = 3;
 }
 
 message VideoRequest {

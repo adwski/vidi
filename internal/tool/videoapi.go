@@ -3,20 +3,20 @@ package tool
 import (
 	"context"
 	"fmt"
-	"github.com/adwski/vidi/internal/api/video/grpc/user/pb"
+	"github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
 
 func (t *Tool) getVideos() ([]Video, error) {
-	md := metadata.New(map[string]string{"bearer": t.state.getCurrentUserUnsafe().Token})
+	md := metadata.New(map[string]string{"authorization": "bearer " + t.state.getCurrentUserUnsafe().Token})
 	ctx := metadata.NewOutgoingContext(context.TODO(), md)
 	resp, err := t.videoapi.GetVideos(ctx, &pb.GetVideosRequest{})
 	if err != nil {
 		t.logger.Error("unable to get videos", zap.Error(err))
 		return nil, fmt.Errorf("unable to get videos: %w", err)
 	}
-	var videos []Video
+	var videos = make([]Video, 0, len(resp.Videos))
 	for _, v := range resp.Videos {
 		videos = append(videos, Video{
 			ID:        v.Id,

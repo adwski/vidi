@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/adwski/vidi/internal/mp4"
-	"github.com/adwski/vidi/internal/session"
-
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/generators"
+	"github.com/adwski/vidi/internal/mp4"
 	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"go.uber.org/zap"
 )
@@ -25,6 +23,9 @@ type Store interface {
 	GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error)
 	Update(ctx context.Context, vi *model.Video) error
 	UpdateStatus(ctx context.Context, vi *model.Video) error
+
+	UpdatePart(ctx context.Context, vid string, part *model.Part) error
+	DeleteUploadedParts(ctx context.Context, vid string) error
 }
 
 // Service is a Video API service. It has two "realms": user-side API and service-side API.
@@ -45,12 +46,12 @@ type Service struct {
 	s               Store
 	watchURLPrefix  string
 	uploadURLPrefix string
-	Quotas          Quotas
+	quotas          Quotas
 }
 
 type Quotas struct {
-	VideosPerUser int
-	MaxTotalSize  int64
+	VideosPerUser uint
+	MaxTotalSize  uint64
 }
 
 type ServiceConfig struct {
@@ -75,10 +76,10 @@ func NewService(cfg *ServiceConfig) *Service {
 	}
 }
 
-func (svc *Service) getUploadURL(sess *session.Session) string {
-	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sess.ID)
+func (svc *Service) getUploadURL(sessID string) string {
+	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sessID)
 }
 
-func (svc *Service) getWatchURL(sess *session.Session) string {
-	return fmt.Sprintf("%s/%s/%s", svc.watchURLPrefix, sess.ID, mp4.MPDSuffix)
+func (svc *Service) getWatchURL(sessID string) string {
+	return fmt.Sprintf("%s/%s/%s", svc.watchURLPrefix, sessID, mp4.MPDSuffix)
 }

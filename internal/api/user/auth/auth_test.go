@@ -13,10 +13,10 @@ import (
 
 func TestAuth_NewTokenForUser(t *testing.T) {
 	a, err := NewAuth(&Config{
-		Secret:     "superSecret",
-		Domain:     "domain.com",
-		HTTPS:      false,
-		Expiration: time.Hour,
+		Secret:       "superSecret",
+		Domain:       "domain.com",
+		SecureCookie: false,
+		Expiration:   time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -40,10 +40,10 @@ func TestAuth_NewTokenForUser(t *testing.T) {
 
 func TestAuth_NewTokenForService(t *testing.T) {
 	a, err := NewAuth(&Config{
-		Secret:     "superSecret",
-		Domain:     "domain.com",
-		HTTPS:      false,
-		Expiration: time.Hour,
+		Secret:       "superSecret",
+		Domain:       "domain.com",
+		SecureCookie: false,
+		Expiration:   time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -65,10 +65,10 @@ func TestAuth_NewTokenForService(t *testing.T) {
 
 func TestAuth_CookieForUser(t *testing.T) {
 	a, err := NewAuth(&Config{
-		Secret:     "superSecret",
-		Domain:     "domain.com",
-		HTTPS:      false,
-		Expiration: time.Hour,
+		Secret:       "superSecret",
+		Domain:       "domain.com",
+		SecureCookie: false,
+		Expiration:   time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -98,10 +98,10 @@ func TestAuth_CookieForUser(t *testing.T) {
 
 func TestAuth_MiddlewareService(t *testing.T) {
 	a, err := NewAuth(&Config{
-		Secret:     "superSecret",
-		Domain:     "domain.com",
-		HTTPS:      false,
-		Expiration: time.Hour,
+		Secret:       "superSecret",
+		Domain:       "domain.com",
+		SecureCookie: false,
+		Expiration:   time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -112,10 +112,10 @@ func TestAuth_MiddlewareService(t *testing.T) {
 
 func TestAuth_MiddlewareUser(t *testing.T) {
 	a, err := NewAuth(&Config{
-		Secret:     "superSecret",
-		Domain:     "domain.com",
-		HTTPS:      false,
-		Expiration: time.Hour,
+		Secret:       "superSecret",
+		Domain:       "domain.com",
+		SecureCookie: false,
+		Expiration:   time.Hour,
 	})
 	require.NoError(t, err)
 
