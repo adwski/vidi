@@ -18,9 +18,8 @@ type (
 	}
 
 	sUserSelect struct {
-		form     *huh.Form
-		password string
-		option   int
+		form   *huh.Form
+		option int
 	}
 )
 

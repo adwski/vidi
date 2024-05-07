@@ -16,6 +16,7 @@ CREATE TABLE videos (
 );
 
 CREATE UNIQUE INDEX videos_id ON videos (id);
+CREATE UNIQUE INDEX videos_location ON videos (location);
 CREATE INDEX videos_user_id ON videos (user_id);
 CREATE INDEX videos_status ON videos (status);
 CREATE INDEX videos_created_at ON videos (created_at);

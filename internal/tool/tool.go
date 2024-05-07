@@ -21,7 +21,7 @@ type (
 	// Tool is a vidit tui client side tool.
 	Tool struct {
 		userapi  *userapi.Client
-		videoapi videoapi.VideoapiClient
+		videoapi videoapi.UsersideapiClient
 		httpC    *resty.Client
 
 		logger *zap.Logger
@@ -39,8 +39,11 @@ type (
 		// quit screen flag
 		quitting bool
 
-		// main menu transition flags
-		videosScreen bool
+		// homeDir
+		dir string
+
+		// main menu transitions
+		mainFlowScreen int
 	}
 
 	// RemoteCFG is config that is dynamically retrieved from ViDi when tool starts.
@@ -52,15 +55,18 @@ type (
 	}
 )
 
+const (
+	mainFlowScreenMainMenu = iota
+	mainFlowScreenVideos
+	mainFlowScreenUpload
+	mainFlowScreenQuotas
+)
+
 // New creates ViDi tui tool instance.
 func New() (*Tool, error) {
-	if err := initStateDir(); err != nil {
-		return nil, fmt.Errorf("cannot create state dir: %w", err)
-	}
-
-	dir, err := os.UserHomeDir()
+	dir, err := initStateDir()
 	if err != nil {
-		return nil, fmt.Errorf("cannot identify home dir: %w", err)
+		return nil, fmt.Errorf("cannot create state dir: %w", err)
 	}
 
 	logger, err := logging.GetZapLoggerFile(dir + logFile)
@@ -69,6 +75,7 @@ func New() (*Tool, error) {
 	}
 	return &Tool{
 		logger: logger,
+		dir:    dir,
 		httpC:  resty.New(),
 	}, nil
 }
@@ -139,10 +146,32 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch dta.option {
 		case mainMenuOptionSwitchUser:
 			t.state.CurrentUser = -1
+		case mainMenuOptionQuotas:
+			t.state.getCurrentUserUnsafe().QuotaUsage, t.err = t.getQuotas()
+			if t.err == nil {
+				t.mainFlowScreen = mainFlowScreenQuotas
+			}
 		case mainMenuOptionVideos:
 			t.state.getCurrentUserUnsafe().Videos, t.err = t.getVideos()
-			t.videosScreen = true
+			t.mainFlowScreen = mainFlowScreenVideos
+		case mainFlowScreenUpload:
+			t.mainFlowScreen = mainFlowScreenUpload
 		default:
+		}
+	case videosControl:
+		if dta.vid == "" {
+			t.mainFlowScreen = mainFlowScreenMainMenu
+		} else {
+			// TODO: switch to watch video screen
+		}
+	case quotasControl:
+		t.mainFlowScreen = mainFlowScreenMainMenu
+	case uploadControl:
+		switch dta.msg {
+		default:
+			t.mainFlowScreen = mainFlowScreenMainMenu
+		case uploadControlMsgFileSelected:
+			t.err = t.prepareUpload(dta.path)
 		}
 	}
 	// reconcile screen changes
@@ -163,12 +192,12 @@ func (t *Tool) View() string {
 // that is possible with existing state (config).
 func (t *Tool) initialize() {
 	if t.state == nil {
-		t.state = newState()
+		t.state = newState(t.dir)
 	}
 	if err := t.state.load(); err != nil {
 		t.logger.Warn("cannot load state", zap.Error(err))
 		// avoid side effects
-		t.state = newState()
+		t.state = newState(t.dir)
 	}
 	if !t.state.noEndpoint() {
 		t.err = t.initClients(t.state.Endpoint)
@@ -188,12 +217,11 @@ func (t *Tool) cycleViews() {
 	case t.err != nil:
 		// in case of error, show it to user
 		t.screen = newErrorScreen(t.err)
-
 	case t.state.noEndpoint(), t.noClients():
 		// invalid endpoint, should configure it again
 		t.screen = newConfigScreen()
 	case t.state.noUsers() || t.state.noUser() && t.enterCreds:
-		// no users OR new user selected
+		// no users OR new user selected,
 		// should register or login
 		t.screen = newUserScreen()
 	default:
@@ -212,11 +240,12 @@ func (t *Tool) cycleViews() {
 			t.logger.Debug("token check error", zap.Error(err))
 
 			if t.enterCreds {
+				// user previously chose to enter credentials,
 				// proceed to reLog screen with selected user
 				t.screen = newReLogScreen(t.state.getCurrentUserUnsafe().Name)
 			} else {
+				// display user selection options
 				t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
-				t.logger.Debug("menu screen")
 			}
 		}
 	}
@@ -225,14 +254,18 @@ func (t *Tool) cycleViews() {
 }
 
 func (t *Tool) mainFlow() {
-	t.logger.Debug("main flow", zap.Bool("videoScreen", t.videosScreen))
-	switch {
-	case t.videosScreen:
+	switch t.mainFlowScreen {
+	case mainMenuOptionQuotas:
+		// quota usage screen
+		t.screen = newQuotasScreen(t.state.getCurrentUserUnsafe().QuotaUsage)
+	case mainFlowScreenVideos:
 		// videos screen
 		t.screen = newVideosScreen(t.state.getCurrentUserUnsafe().Videos)
-		t.logger.Debug("videos screen")
-	default:
-		// Main menu
+	case mainFlowScreenUpload:
+		// upload screen
+		t.screen = newUploadScreen()
+	default: // mainFlowScreenMainMenu
+		// main menu
 		t.screen = newMainMenuScreen(t.state.getCurrentUserUnsafe().Name)
 	}
 }
@@ -278,7 +311,7 @@ func (t *Tool) initClients(ep string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create vidi connection: %w", err)
 	}
-	t.videoapi = videoapi.NewVideoapiClient(cc)
+	t.videoapi = videoapi.NewUsersideapiClient(cc)
 
 	// Persist endpoint, since no more errors can be caught
 	// until we start making actual requests
@@ -298,15 +331,15 @@ func (t *Tool) initClients(ep string) error {
 }
 
 // initStateDir creates state dir if it not exists.
-func initStateDir() error {
+func initStateDir() (string, error) {
 	dir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("cannot identify home dir: %w", err)
+		return "", fmt.Errorf("cannot identify home dir: %w", err)
 	}
 	if err = os.MkdirAll(dir+stateDir, 0700); err != nil {
-		return fmt.Errorf("cannot create state directory: %w", err)
+		return "", fmt.Errorf("cannot create state directory: %w", err)
 	}
-	return nil
+	return dir + stateDir, nil
 }
 
 type (
@@ -341,6 +374,10 @@ func (oc *outerControl) String() string {
 		msg = "userSelectControl: " + t.String()
 	case mainMenuControl:
 		msg = "mainMenuControl: " + t.String()
+	case uploadControl:
+		msg = "uploadControl"
+	case quotasControl:
+		msg = "quotasControl"
 	}
 	return msg
 }

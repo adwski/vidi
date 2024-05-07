@@ -14,10 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	constrainUID = "videos_uid_key"
-)
-
 //go:embed migrations/*.sql
 var migrations embed.FS
 
@@ -46,7 +42,7 @@ func New(ctx context.Context, cfg *Config) (*Store, error) {
 }
 
 func (s *Store) DeleteUploadedParts(ctx context.Context, vid string) error {
-	query := `delete from uploaded_parts where video_id = $1`
+	query := `delete from upload_parts where video_id = $1`
 	_, err := s.Pool().Exec(ctx, query, vid)
 	if err != nil {
 		return handleDBErr(err)
@@ -92,7 +88,7 @@ func (s *Store) UpdatePart(ctx context.Context, vid string, part *model.Part) er
 
 func (s *Store) Usage(ctx context.Context, userID string) (*model.UserUsage, error) {
 	usage := &model.UserUsage{}
-	query := `select count(*) as v_count, sum(size) as v_size from videos where user_id = $1`
+	query := `select count(*) as v_count, coalesce(sum(size), 0) as v_size from videos where user_id = $1`
 	if err := s.Pool().QueryRow(ctx, query, userID).Scan(&usage.Videos, &usage.Size); err != nil {
 		return nil, handleDBErr(err)
 	}
@@ -219,9 +215,7 @@ func handleDBErr(err error) error {
 		return fmt.Errorf("unknown database error: %w", err)
 	}
 	if pgErr.Code == pgerrcode.UniqueViolation {
-		if pgErr.ConstraintName == constrainUID {
-			return model.ErrAlreadyExists
-		}
+		return model.ErrAlreadyExists
 	}
 	return fmt.Errorf("postgress error: %w", pgErr)
 }

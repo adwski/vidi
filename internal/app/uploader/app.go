@@ -69,7 +69,13 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 		return nil, nil, false
 	}
 	uploaderCfg.SessionStorage = sessStore
-	uploaderCfg.Notificator = notificator.New(notificatorCfg)
+
+	var err error
+	uploaderCfg.Notificator, err = notificator.New(notificatorCfg)
+	if err != nil {
+		logger.Error("cannot create notificator", zap.Error(err))
+		return nil, nil, false
+	}
 	uploaderSvc, errUp := uploader.New(&uploaderCfg)
 	if errUp != nil {
 		logger.Error("cannot create uploader service", zap.Error(errUp))

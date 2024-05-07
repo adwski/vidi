@@ -21,7 +21,7 @@ const (
 //
 // TODO In the future could be replaced with actual message queue.
 type Notificator struct {
-	c      pb.VideoapiClient
+	c      pb.ServicesideapiClient
 	authMD metadata.MD
 	logger *zap.Logger
 	evCh   chan *event.Event
@@ -42,7 +42,7 @@ func New(cfg *Config) (*Notificator, error) {
 		authMD: metadata.Pairs("authorization", cfg.VideoAPIToken),
 		logger: cfg.Logger.With(zap.String("component", "notificator")),
 		evCh:   make(chan *event.Event, defaultEventChannelLen),
-		c:      pb.NewVideoapiClient(cc),
+		c:      pb.NewServicesideapiClient(cc),
 	}, nil
 }
 

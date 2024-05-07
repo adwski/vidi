@@ -59,7 +59,11 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 		logger.Error("cannot create s3 storage", zap.Error(err))
 		return nil, nil, false
 	}
-	processorCfg.Notificator = notificator.New(notificatorCfg)
+	processorCfg.Notificator, err = notificator.New(notificatorCfg)
+	if err != nil {
+		logger.Error("cannot create notificator", zap.Error(err))
+		return nil, nil, false
+	}
 	processorCfg.Store = store
 	return []app.Runner{processor.New(processorCfg), processorCfg.Notificator}, nil, true
 }

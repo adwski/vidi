@@ -13,8 +13,8 @@ import (
 
 const (
 	stateDir  = "/.vidi"
-	stateFile = stateDir + "/state.json"
-	logFile   = stateDir + "/log.json"
+	stateFile = "/state.json"
+	logFile   = "/log.json"
 
 	configURLPath = "/config.json"
 )
@@ -25,15 +25,17 @@ type (
 		CurrentUser int    `json:"current_user"`
 		Users       []User `json:"users"`
 
-		p *jwt.Parser
+		dir string
+		p   *jwt.Parser
 	}
 
 	User struct {
-		Name           string   `json:"name"`
-		Token          string   `json:"token"`
-		TokenExpiresAt int64    `json:"expires_at"`
-		Uploads        []Upload `json:"uploads"`
-		Videos         []Video  `json:"-"`
+		Name           string       `json:"name"`
+		Token          string       `json:"token"`
+		TokenExpiresAt int64        `json:"expires_at"`
+		CurrentUpload  *Upload      `json:"upload"`
+		Videos         []Video      `json:"-"`
+		QuotaUsage     []QuotaParam `json:"-"`
 	}
 
 	Video struct {
@@ -45,14 +47,26 @@ type (
 	}
 
 	Upload struct {
-		ID       string `json:"id"`
 		Filename string `json:"filename"`
+		Parts    []Part `json:"parts"`
+	}
+
+	Part struct {
+		Num      uint   `json:"num"`
+		Size     uint   `json:"size"`
+		Checksum string `json:"checksum"`
+	}
+
+	QuotaParam struct {
+		Name  string
+		Value string
 	}
 )
 
-func newState() *State {
+func newState(dir string) *State {
 	return &State{
 		CurrentUser: -1,
+		dir:         dir,
 		p:           jwt.NewParser(),
 	}
 }
@@ -86,11 +100,7 @@ func (s *State) noEndpoint() bool {
 }
 
 func (s *State) load() error {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot identify home dir: %w", err)
-	}
-	f, err := os.Open(dir + stateFile)
+	f, err := os.Open(s.dir + stateFile)
 	if err != nil {
 		return fmt.Errorf("cannot open state file: %w", err)
 	}
@@ -112,11 +122,7 @@ func (s *State) load() error {
 }
 
 func (s *State) persist() error {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot identify home dir: %w", err)
-	}
-	f, err := os.OpenFile(dir+stateFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(s.dir+stateFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("cannot open state file for writing: %w", err)
 	}

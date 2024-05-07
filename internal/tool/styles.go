@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	greetMessage = " ░▒▓█ Welcome to Vidi terminal tool █▓▒░ "
+	greetMessageTxt = "Welcome to Vidi terminal tool"
 )
 
 var (
@@ -20,6 +20,12 @@ var (
 			Bold(true).
 			Border(lipgloss.RoundedBorder())
 
+	tableContainer = lipgloss.NewStyle().
+			Align(lipgloss.Left).
+			Border(lipgloss.RoundedBorder()).
+			Margin(1, 1, 0, 0).
+			Padding(0, 1, 0, 1)
+
 	greetStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
 			Foreground(defaultHuhTheme.Focused.Title.GetForeground()).
@@ -31,7 +37,15 @@ var (
 			Width(50)
 
 	vidiSplashText = ""
-	vidiSplashes   = []string{
+	greetMessage   = ""
+	greetMessages  = []string{
+		" ░▒▓█ " + greetMessageTxt + " █▓▒░ ",
+		greetMessageTxt,
+		" #+# " + greetMessageTxt + " #+# ",
+		" ## " + greetMessageTxt + " ## ",
+		` \\ ` + greetMessageTxt + ` \\ `,
+	}
+	vidiSplashes = []string{
 		`░  ░░░░  ░░        ░░       ░░░        ░
 ▒  ▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒
 ▓▓  ▓▓  ▓▓▓▓▓▓  ▓▓▓▓▓  ▓▓▓▓  ▓▓▓▓▓  ▓▓▓▓
@@ -50,12 +64,12 @@ var (
  +#+   +#+      +#+     +#+    +#+    +#+     
   #+#+#+#       #+#     #+#    #+#    #+#     
     ###     ########### ######### ###########`,
-		`.##..##..######..#####...######.
-.##..##....##....##..##....##...
-.##..##....##....##..##....##...
-..####.....##....##..##....##...
-...##....######..#####...######.
-................................`,
+		`.....##..##..######..#####...######.
+.....##..##....##....##..##....##...
+.....##..##....##....##..##....##...
+......####.....##....##..##....##...
+.......##....######..#####...######.
+....................................`,
 		` ___      ___ ___  ________  ___     
 |\  \    /  /|\  \|\   ___ \|\  \    
 \ \  \  /  / | \  \ \  \_|\ \ \  \   
@@ -66,5 +80,7 @@ var (
 )
 
 func init() {
-	vidiSplashText = vidiSplashes[rand.Intn(5)]
+	n := rand.Intn(5)
+	vidiSplashText = vidiSplashes[n]
+	greetMessage = greetMessages[n]
 }

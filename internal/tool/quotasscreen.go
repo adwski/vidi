@@ -8,32 +8,27 @@ import (
 )
 
 type (
-	sVideos struct {
+	sQuotas struct {
 		table table.Model
 	}
 
-	videosControl struct {
-		vid string
-	}
+	quotasControl struct{}
 )
 
-func newVideosScreen(videos []Video) *sVideos {
+func newQuotasScreen(quotas []QuotaParam) *sQuotas {
 	var (
 		columns = []table.Column{
-			{Title: "Id", Width: 4},
-			{Title: "Name", Width: 10},
-			{Title: "Status", Width: 10},
-			{Title: "Size", Width: 10},
-			{Title: "CreatedAt", Width: 10},
+			{Title: "Name", Width: 20},
+			{Title: "Value", Width: 20},
 		}
-		rows = make([]table.Row, 0, len(videos))
+		rows = make([]table.Row, 0, len(quotas))
 	)
 
-	for _, v := range videos {
-		rows = append(rows, table.Row{v.ID, v.Name, v.Status, v.Size, v.CreatedAt})
+	for _, p := range quotas {
+		rows = append(rows, table.Row{p.Name, p.Value})
 	}
-	if len(videos) == 0 {
-		rows = append(rows, table.Row{"", "<no videos to show>", "", "", ""})
+	if len(quotas) == 0 {
+		rows = append(rows, table.Row{"", "<cannot display quotas>"})
 	}
 
 	t := table.New(
@@ -55,18 +50,18 @@ func newVideosScreen(videos []Video) *sVideos {
 		Bold(false)
 	t.SetStyles(s)
 
-	return &sVideos{table: t}
+	return &sQuotas{table: t}
 }
 
-func (s *sVideos) init() tea.Cmd {
+func (s *sQuotas) init() tea.Cmd {
 	return nil
 }
 
-func (s *sVideos) name() string {
-	return "videosScreen"
+func (s *sQuotas) name() string {
+	return "quotaScreen"
 }
 
-func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
+func (s *sQuotas) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 	var cmd tea.Cmd
 	if m, ok := msg.(tea.KeyMsg); ok {
 		switch m.String() {
@@ -76,16 +71,14 @@ func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 			} else {
 				s.table.Focus()
 			}
-		case "backspace", "esc":
-			return nil, &outerControl{data: videosControl{vid: ""}}
-		case "enter":
-			return nil, &outerControl{data: videosControl{vid: s.table.SelectedRow()[1]}}
+		case "backspace", "esc", "enter":
+			return nil, &outerControl{data: quotasControl{}}
 		}
 	}
 	s.table, cmd = s.table.Update(msg)
 	return cmd, nil
 }
 
-func (s *sVideos) view() string {
+func (s *sQuotas) view() string {
 	return tableContainer.Render(s.table.View())
 }

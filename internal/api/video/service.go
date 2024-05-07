@@ -70,6 +70,7 @@ func NewService(cfg *ServiceConfig) *Service {
 		s:               cfg.Store,
 		uploadSessions:  cfg.UploadSessionStore,
 		watchSessions:   cfg.WatchSessionStore,
+		quotas:          cfg.Quotas,
 		idGen:           generators.NewID(),
 		watchURLPrefix:  strings.TrimRight(cfg.WatchURLPrefix, "/"),
 		uploadURLPrefix: strings.TrimRight(cfg.UploadURLPrefix, "/"),

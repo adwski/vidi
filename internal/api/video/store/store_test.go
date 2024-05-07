@@ -30,8 +30,7 @@ func Test_handleDBErrUnknownPG(t *testing.T) {
 
 func Test_handleDBErrAlreadyExists(t *testing.T) {
 	err := &pgconn.PgError{
-		Code:           pgerrcode.UniqueViolation,
-		ConstraintName: constrainUID,
+		Code: pgerrcode.UniqueViolation,
 	}
 	assert.Equal(t, model.ErrAlreadyExists, handleDBErr(err))
 }

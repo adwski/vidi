@@ -17,7 +17,6 @@ type (
 	sMainMenu struct {
 		form   *huh.Form
 		option int
-		choice string
 	}
 
 	mainMenuControl struct {
@@ -53,7 +52,6 @@ func newMainMenuScreen(user string) *sMainMenu {
 					huh.NewOption("Quotas", mainMenuOptionQuotas),
 					huh.NewOption("Switch User", mainMenuOptionSwitchUser),
 				).Value(&smm.option),
-			//huh.NewConfirm(),
 		),
 	).WithTheme(defaultHuhTheme)
 	smm.form = f

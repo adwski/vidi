@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	defaultPartSize    = 10 * 1024 * 1024
 	videoCreateRetries = 3
 )
 
@@ -111,8 +112,9 @@ func (svc *Service) CreateVideo(ctx context.Context, usr *user.User, req *model.
 	}
 
 	sess := &session.Session{
-		ID:      newVideo.Location,
-		VideoID: newVideo.ID,
+		ID:       newVideo.Location,
+		VideoID:  newVideo.ID,
+		PartSize: defaultPartSize,
 	}
 	if err = svc.uploadSessions.Set(ctx, sess); err != nil {
 		return nil, errors.Join(model.ErrSessionStorage, err)
