@@ -20,11 +20,11 @@ var (
 			Bold(true).
 			Border(lipgloss.RoundedBorder())
 
-	tableContainer = lipgloss.NewStyle().
-			Align(lipgloss.Left).
-			Border(lipgloss.RoundedBorder()).
-			Margin(1, 1, 0, 0).
-			Padding(0, 1, 0, 1)
+	containerWithBorder = lipgloss.NewStyle().
+				Align(lipgloss.Left).
+				Border(lipgloss.RoundedBorder()).
+				Margin(1, 1, 0, 0).
+				Padding(0, 1, 0, 1)
 
 	greetStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
@@ -41,7 +41,7 @@ var (
 	greetMessages  = []string{
 		" ░▒▓█ " + greetMessageTxt + " █▓▒░ ",
 		greetMessageTxt,
-		" #+# " + greetMessageTxt + " #+# ",
+		" +#+ " + greetMessageTxt + " +#+ ",
 		" ## " + greetMessageTxt + " ## ",
 		` \\ ` + greetMessageTxt + ` \\ `,
 	}

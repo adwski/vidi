@@ -2,6 +2,7 @@ package serviceside
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video"
@@ -44,6 +45,9 @@ func (srv *Server) GetVideosByStatus(ctx context.Context, req *pb.GetByStatusReq
 	}
 	videos, err := srv.videoSvc.GetVideosByStatus(ctx, model.Status(req.Status))
 	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	var resp pb.VideoListResponse
@@ -53,6 +57,7 @@ func (srv *Server) GetVideosByStatus(ctx context.Context, req *pb.GetByStatusReq
 			Id:        v.ID,
 			Status:    int32(v.Status),
 			CreatedAt: uint64(v.CreatedAt.Unix()),
+			Location:  v.Location,
 		})
 	}
 	return &resp, nil
@@ -69,7 +74,18 @@ func (srv *Server) UpdateVideo(ctx context.Context, req *pb.UpdateVideoRequest) 
 	return &pb.UpdateVideoResponse{}, nil
 }
 
-func (srv *Server) UpdatePart(ctx context.Context, req *pb.NotifyPartUploadRequest) (*pb.NotifyPartUploadResponse, error) {
+func (srv *Server) UpdateVideoStatus(ctx context.Context, req *pb.UpdateVideoStatusRequest) (*pb.UpdateVideoStatusResponse, error) {
+	if err := checkServiceClaims(ctx); err != nil {
+		return nil, err
+	}
+	err := srv.videoSvc.UpdateVideoStatus(ctx, req.Id, model.Status(req.Status))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return &pb.UpdateVideoStatusResponse{}, nil
+}
+
+func (srv *Server) NotifyPartUpload(ctx context.Context, req *pb.NotifyPartUploadRequest) (*pb.NotifyPartUploadResponse, error) {
 	if err := checkServiceClaims(ctx); err != nil {
 		return nil, err
 	}

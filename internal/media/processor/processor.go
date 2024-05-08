@@ -4,16 +4,20 @@ package processor
 import (
 	"context"
 	"fmt"
-	"io"
-	"strings"
-	"sync"
-	"time"
-
-	"github.com/adwski/vidi/internal/api/video/http/client"
+	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
 	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"io"
+	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -27,8 +31,9 @@ type MediaStore interface {
 
 type Processor struct {
 	logger           *zap.Logger
-	videoAPI         *client.Client
 	notificator      *notificator.Notificator
+	videoAPI         pb.ServicesideapiClient
+	authMD           metadata.MD
 	st               MediaStore
 	inputPathPrefix  string
 	outputPathPrefix string
@@ -48,7 +53,11 @@ type Config struct {
 	VideoCheckPeriod time.Duration
 }
 
-func New(cfg *Config) *Processor {
+func New(cfg *Config) (*Processor, error) {
+	cc, err := grpc.Dial(cfg.VideoAPIEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create vidi connection: %w", err)
+	}
 	return &Processor{
 		logger:           cfg.Logger.With(zap.String("component", "processor")),
 		st:               cfg.Store,
@@ -57,12 +66,9 @@ func New(cfg *Config) *Processor {
 		videoCheckPeriod: cfg.VideoCheckPeriod,
 		inputPathPrefix:  strings.TrimSuffix(cfg.InputPathPrefix, "/"),
 		outputPathPrefix: strings.TrimSuffix(cfg.OutputPathPrefix, "/"),
-		videoAPI: client.New(&client.Config{
-			Logger:   cfg.Logger,
-			Endpoint: cfg.VideoAPIEndpoint,
-			Token:    cfg.VideoAPIToken,
-		}),
-	}
+		videoAPI:         pb.NewServicesideapiClient(cc),
+		authMD:           metadata.Pairs("authorization", "bearer "+cfg.VideoAPIToken),
+	}, nil
 }
 
 func (p *Processor) Run(ctx context.Context, wg *sync.WaitGroup, _ chan<- error) {
@@ -80,10 +86,22 @@ Loop:
 	p.logger.Info("stopped")
 }
 
+func (p *Processor) getUploadedVideos(ctx context.Context) ([]*pb.Video, error) {
+	resp, err := p.videoAPI.GetVideosByStatus(metadata.NewOutgoingContext(ctx, p.authMD),
+		&pb.GetByStatusRequest{Status: int32(video.StatusUploaded)})
+	if err != nil {
+		if status.Code(err) != codes.NotFound {
+			return nil, fmt.Errorf("unable to retrieve uploaded videos: %w", err)
+		}
+		return nil, nil
+	}
+	return resp.Videos, nil
+}
+
 func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 	p.logger.Debug("checking videos")
 
-	videos, err := p.videoAPI.GetUploadedVideos(ctx)
+	videos, err := p.getUploadedVideos(ctx)
 	if err != nil {
 		p.logger.Error("cannot get videos from video API", zap.Error(err))
 		return
@@ -102,24 +120,22 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 			//  and in such cases video processing could be retried later. (So we need retry mechanism).
 			p.notificator.Send(&event.Event{
 				VideoInfo: &event.VideoInfo{
-					VideoID: v.ID,
+					VideoID: v.Id,
 					Status:  int(video.StatusError),
 				},
 				Kind: event.KindUpdateStatus,
 			})
 			p.logger.Error("error while processing video",
-				zap.String("id", v.ID),
-				zap.String("location", v.Location),
+				zap.String("id", v.Id),
 				zap.Error(err))
 			continue
 		}
 		p.logger.Debug("video processed successfully",
-			zap.String("id", v.ID),
-			zap.String("location", v.Location))
+			zap.String("id", v.Id))
 		p.notificator.Send(&event.Event{
 			VideoInfo: &event.VideoInfo{
-				VideoID: v.ID,
-				Status:  int(video.StatusError),
+				VideoID: v.Id,
+				Status:  int(video.StatusReady),
 			},
 			Kind: event.KindUpdateStatus,
 		})
@@ -127,7 +143,7 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 	p.logger.Debug("processing done")
 }
 
-func (p *Processor) processVideo(ctx context.Context, v *video.Video) error {
+func (p *Processor) processVideo(ctx context.Context, v *pb.Video) error {
 	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, v.Location, defaultMediaStoreArtifactName)
 	rc, _, err := p.st.Get(ctx, fullInputPath)
 	if err != nil {

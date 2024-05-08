@@ -65,5 +65,10 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 		return nil, nil, false
 	}
 	processorCfg.Store = store
-	return []app.Runner{processor.New(processorCfg), processorCfg.Notificator}, nil, true
+	proc, err := processor.New(processorCfg)
+	if err != nil {
+		logger.Error("cannot create processor", zap.Error(err))
+		return nil, nil, false
+	}
+	return []app.Runner{proc, processorCfg.Notificator}, nil, true
 }

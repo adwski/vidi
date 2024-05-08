@@ -1,9 +1,7 @@
 package tool
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
+	"context"
 	"fmt"
 	userapi "github.com/adwski/vidi/internal/api/user/client"
 	videoapi "github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
@@ -12,9 +10,9 @@ import (
 	"github.com/enescakir/emoji"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"os"
+	"os/signal"
+	"sync"
 )
 
 type (
@@ -23,24 +21,27 @@ type (
 		userapi  *userapi.Client
 		videoapi videoapi.UsersideapiClient
 		httpC    *resty.Client
+		logger   *zap.Logger
+		prog     *tea.Program
 
-		logger *zap.Logger
+		// feedback channel to turn any world event into tea.Msg
+		fb chan tea.Msg
 
 		err error
 
 		// tool's persistent state
 		state *State
 
+		// tool's homeDir
+		dir string
+
 		// current screen
 		screen screen
 
-		// flag indicating that user should enter credentials
+		// flag indicating that user selected to enter credentials
 		enterCreds bool
 		// quit screen flag
 		quitting bool
-
-		// homeDir
-		dir string
 
 		// main menu transitions
 		mainFlowScreen int
@@ -53,13 +54,6 @@ type (
 		VidiCAB64   string `json:"vidi_ca"`
 		vidiCA      []byte
 	}
-)
-
-const (
-	mainFlowScreenMainMenu = iota
-	mainFlowScreenVideos
-	mainFlowScreenUpload
-	mainFlowScreenQuotas
 )
 
 // New creates ViDi tui tool instance.
@@ -77,18 +71,52 @@ func New() (*Tool, error) {
 		logger: logger,
 		dir:    dir,
 		httpC:  resty.New(),
+		fb:     make(chan tea.Msg),
 	}, nil
 }
 
 // Run starts tool. It returns only on interrupt.
 func (t *Tool) Run() int {
-	t.initialize()
-	if _, err := tea.NewProgram(t).Run(); err != nil {
-		t.logger.Error("runtime error", zap.Error(err), zap.Stack("stack"))
-		fmt.Println("runtime error:", err)
-		return 1
+	var code int
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	if err := t.run(ctx, wg); err != nil {
+		code = 1
 	}
-	return 0
+	cancel()
+	wg.Wait()
+	return code
+}
+
+// run spawns tea program and world event loop.
+func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
+	defer wg.Done()
+	t.initialize()
+	t.prog = tea.NewProgram(t)
+	wg.Add(1)
+	go t.listenForEvents(ctx, wg)
+	if _, err := t.prog.Run(); err != nil {
+		t.logger.Error("runtime error", zap.Error(err), zap.Stack("stack"))
+		return err
+	}
+	t.logger.Debug("program exited")
+	return nil
+}
+
+// listenForEvents proxies world events to tea message flow.
+func (t *Tool) listenForEvents(ctx context.Context, wg *sync.WaitGroup) {
+Loop:
+	for {
+		select {
+		case msg := <-t.fb:
+			t.prog.Send(msg)
+		case <-ctx.Done():
+			break Loop
+		}
+	}
+	wg.Done()
 }
 
 // Init initializes current screen.
@@ -102,24 +130,28 @@ func (t *Tool) Init() tea.Cmd {
 // It's part of bubbletea Model interface.
 func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m, ok := msg.(tea.KeyMsg); ok {
+		// catch quit combination
 		if m.String() == "ctrl+c" {
 			t.quitting = true
 			return t, tea.Quit
 		}
 	}
+	// send message to active screen
 	cmd, oc := t.screen.update(msg)
 	t.logger.Debug("updating screen",
 		zap.Any("screen", t.screen.name()),
 		zap.Any("in-msg", msg),
 		zap.Any("out-oc", oc))
 	if oc == nil {
-		// no outerControl means current screen is still active
+		// no outerControl means current screen doesn't need outside help
 		return t, cmd
 	}
 
-	// -----------------------------------------------------
-	// Here we catch & process control messages from screens
-	// -----------------------------------------------------
+	cycle := true
+
+	// -----------------------------------------------------------
+	// Here we catch & process control messages from active screen
+	// -----------------------------------------------------------
 	switch dta := oc.data.(type) {
 	case msgErrorScreenDone:
 		t.err = nil
@@ -171,12 +203,18 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			t.mainFlowScreen = mainFlowScreenMainMenu
 		case uploadControlMsgFileSelected:
-			t.err = t.prepareUpload(dta.path)
+			// Spawn upload goroutine, it will produce world events.
+			go t.uploadFileNotify(dta.name, dta.path)
+			// We're not switching screens here.
+			cycle = false
 		}
 	}
-	// reconcile screen changes
-	t.cycleViews()
-	return t, t.screen.init()
+	if cycle {
+		// reconcile screen changes
+		t.cycleViews()
+		return t, t.screen.init()
+	}
+	return t, nil
 }
 
 // View delegates rendering to active screen or renders quit screen.
@@ -186,27 +224,6 @@ func (t *Tool) View() string {
 		return quitTextStyle.Render("bye" + emoji.WavingHand.String())
 	}
 	return t.screen.view()
-}
-
-// initialize initializes application up to the point
-// that is possible with existing state (config).
-func (t *Tool) initialize() {
-	if t.state == nil {
-		t.state = newState(t.dir)
-	}
-	if err := t.state.load(); err != nil {
-		t.logger.Warn("cannot load state", zap.Error(err))
-		// avoid side effects
-		t.state = newState(t.dir)
-	}
-	if !t.state.noEndpoint() {
-		t.err = t.initClients(t.state.Endpoint)
-	}
-	t.cycleViews()
-}
-
-func (t *Tool) noClients() bool {
-	return t.userapi == nil || t.videoapi == nil
 }
 
 // cycleViews switches views according state changes.
@@ -270,77 +287,12 @@ func (t *Tool) mainFlow() {
 	}
 }
 
-// getRemoteConfig retrieves json config from ViDi endpoint.
-func (t *Tool) getRemoteConfig(ep string) (*RemoteCFG, error) {
-	var rCfg RemoteCFG
-	resp, err := t.httpC.NewRequest().
-		SetHeader("Accept", "application/json").
-		SetResult(&rCfg).Get(ep + configURLPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot contact ViDi endpoint: %w", err)
-	}
-	if resp.IsError() {
-		return nil, fmt.Errorf("ViDi endpoint returned err status: %s", resp.Status())
-	}
-	rCfg.vidiCA, err = base64.StdEncoding.DecodeString(rCfg.VidiCAB64)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode vidi ca: %w", err)
-	}
-	t.logger.Debug("vidi ca decoded", zap.String("vidi_ca", rCfg.VidiCAB64))
-	return &rCfg, nil
-}
-
-// initClients initializes video api and user api clients using provided ViDi endpoint.
-func (t *Tool) initClients(ep string) error {
-	rCfg, err := t.getRemoteConfig(ep)
-	if err != nil {
-		return err
-	}
-
-	// GRPC client is always spawned with tls creds
-	// We're using CA from remote config
-	cp := x509.NewCertPool()
-	if !cp.AppendCertsFromPEM(rCfg.vidiCA) {
-		return fmt.Errorf("credentials: failed to append certificates")
-	}
-	creds := credentials.NewTLS(&tls.Config{
-		MinVersion: tls.VersionTLS13,
-		RootCAs:    cp,
-	})
-	cc, err := grpc.Dial(rCfg.VideoAPIURL, grpc.WithTransportCredentials(creds))
-	if err != nil {
-		return fmt.Errorf("cannot create vidi connection: %w", err)
-	}
-	t.videoapi = videoapi.NewUsersideapiClient(cc)
-
-	// Persist endpoint, since no more errors can be caught
-	// until we start making actual requests
-	t.state.Endpoint = ep
-	if err = t.state.persist(); err != nil {
-		return fmt.Errorf("cannot persist state: %w", err)
-	}
-
-	t.userapi = userapi.New(&userapi.Config{
-		Endpoint: rCfg.UserAPIURL,
-	})
-
-	t.logger.Debug("successfully configured ViDi clients",
-		zap.String("videoAPI", rCfg.VideoAPIURL),
-		zap.String("userAPI", rCfg.UserAPIURL))
-	return nil
-}
-
-// initStateDir creates state dir if it not exists.
-func initStateDir() (string, error) {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot identify home dir: %w", err)
-	}
-	if err = os.MkdirAll(dir+stateDir, 0700); err != nil {
-		return "", fmt.Errorf("cannot create state directory: %w", err)
-	}
-	return dir + stateDir, nil
-}
+const (
+	mainFlowScreenMainMenu = iota
+	mainFlowScreenVideos
+	mainFlowScreenUpload
+	mainFlowScreenQuotas
+)
 
 type (
 	// screen is responsible for rendering set of elements
@@ -352,7 +304,7 @@ type (
 		name() string
 	}
 
-	// outerControl is control structure returned by finished screen.
+	// outerControl is control structure returned by screen.
 	// It contains data necessary to continue screen cycle.
 	outerControl struct {
 		data interface{}
@@ -360,7 +312,7 @@ type (
 )
 
 func (oc *outerControl) String() string {
-	msg := ""
+	var msg string
 	switch t := oc.data.(type) {
 	case msgViDiURL:
 		msg = "vidi url: " + string(t)

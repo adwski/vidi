@@ -47,6 +47,7 @@ type (
 	}
 
 	Upload struct {
+		ID       string `json:"id"`
 		Filename string `json:"filename"`
 		Parts    []Part `json:"parts"`
 	}

@@ -82,7 +82,7 @@ func (s *Store) UpdatePart(ctx context.Context, vid string, part *model.Part) er
 
 	// all parts are ok, update video status
 	query = `update videos set status = $2 where id = $1`
-	tag, err = s.Pool().Exec(ctx, query, vid, model.StatusUploaded)
+	tag, err = s.Pool().Exec(ctx, query, vid, int(model.StatusUploaded))
 	return handleTagOneRowAndErr(&tag, err)
 }
 
@@ -97,14 +97,17 @@ func (s *Store) Usage(ctx context.Context, userID string) (*model.UserUsage, err
 
 func (s *Store) Create(ctx context.Context, vi *model.Video) error {
 	batch := &pgx.Batch{}
-	batch.Queue(`insert into videos (id, user_id, status, created_at, name, size)
-		values ($1, $2, $3, $4, $5, $6)`, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt, vi.Name, vi.Size)
+	batch.Queue(`insert into videos (id, user_id, status, created_at, name, size, location)
+		values ($1, $2, $3, $4, $5, $6, $7)`, vi.ID, vi.UserID, int(vi.Status), vi.CreatedAt, vi.Name, vi.Size, vi.Location)
 	for _, p := range vi.UploadInfo.Parts {
-		batch.Queue(`insert into upload_parts (num, video_id, checksum, size)
-			values($1, $2, $3, $4)`, p.Num, vi.ID, p.Checksum, p.Size)
+		batch.Queue(`insert into upload_parts (num, video_id, checksum, status, size)
+			values($1, $2, $3, $4, $5)`, p.Num, vi.ID, p.Checksum, p.Status, p.Size)
 	}
-	err := s.Pool().SendBatch(ctx, batch).Close()
-	return handleDBErr(err)
+
+	if err := s.Pool().SendBatch(ctx, batch).Close(); err != nil {
+		return handleDBErr(err)
+	}
+	return nil
 }
 
 func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error) {
@@ -135,7 +138,7 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 }
 
 func (s *Store) GetAll(ctx context.Context, userID string) ([]*model.Video, error) {
-	query := `select id, location, status, created_at from videos where user_id = $1`
+	query := `select id, location, status, name, size, created_at from videos where user_id = $1`
 	rows, err := s.Pool().Query(ctx, query, userID)
 	if err != nil {
 		return nil, handleDBErr(err)
@@ -143,7 +146,7 @@ func (s *Store) GetAll(ctx context.Context, userID string) ([]*model.Video, erro
 	videos, errR := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Video, error) {
 		var vi model.Video
 		vi.UserID = userID
-		if errS := row.Scan(&vi.ID, &vi.Location, &vi.Status, &vi.CreatedAt); errS != nil {
+		if errS := row.Scan(&vi.ID, &vi.Location, &vi.Status, &vi.Name, &vi.Size, &vi.CreatedAt); errS != nil {
 			return nil, fmt.Errorf("error while scanning row: %w", errS)
 		}
 		return &vi, nil

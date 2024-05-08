@@ -2,7 +2,9 @@ package s3
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"github.com/minio/sha256-simd"
 	"io"
 	"net/http"
 
@@ -31,6 +33,20 @@ func (s *Store) Put(ctx context.Context, name string, r io.Reader, size int64) e
 	return nil
 }
 
+func (s *Store) CalcSha256(ctx context.Context, name string) (string, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("cannot retrieve object from s3: %w", err)
+	}
+	defer func() { _ = obj.Close() }()
+	shaW := sha256.New()
+	_, err = io.Copy(shaW, obj)
+	if err != nil {
+		return "", fmt.Errorf("cannot calculate object sha256: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(shaW.Sum(nil)), nil
+}
+
 func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
@@ -45,15 +61,4 @@ func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, err
 		return nil, 0, fmt.Errorf("cannot get object stats: %w", errS)
 	}
 	return obj, stat.Size, nil
-}
-
-func (s *Store) GetChecksumSHA256(ctx context.Context, name string) (string, error) {
-	info, err := s.client.StatObject(ctx, s.bucket, name, minio.StatObjectOptions{})
-	if err != nil {
-		er := minio.ToErrorResponse(err)
-		if er.StatusCode == http.StatusNotFound {
-			return "", store.ErrNotFount
-		}
-	}
-	return info.ChecksumSHA256, nil
 }

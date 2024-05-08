@@ -50,6 +50,7 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 		ReadTimeout:   v.GetDuration("server.http.timeouts.read"),
 		WriteTimeout:  v.GetDuration("server.http.timeouts.write"),
 		IdleTimeout:   v.GetDuration("server.http.timeouts.idle"),
+		MaxBodySize:   v.GetUint("server.http.max_body_size"),
 	}
 	sessionStoreCfg := &sessionStore.Config{
 		Logger:   logger,

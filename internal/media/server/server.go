@@ -27,7 +27,7 @@ type Server struct {
 type Config struct {
 	Logger        *zap.Logger
 	Handler       fasthttp.RequestHandler
-	MaxBodySize   int
+	MaxBodySize   uint
 	ListenAddress string
 	ReadTimeout   time.Duration
 	WriteTimeout  time.Duration
@@ -46,7 +46,7 @@ func New(cfg *Config) *Server {
 			ReadTimeout:        cfg.ReadTimeout,
 			WriteTimeout:       cfg.WriteTimeout,
 			IdleTimeout:        cfg.IdleTimeout,
-			MaxRequestBodySize: cfg.MaxBodySize,
+			MaxRequestBodySize: int(cfg.MaxBodySize),
 			CloseOnShutdown:    true,
 			//StreamRequestBody:  true,
 
@@ -69,7 +69,9 @@ func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error)
 		errSrv <- s.srv.ListenAndServe(s.addr)
 	}()
 
-	s.logger.Info("server started", zap.String("address", s.addr))
+	s.logger.Info("server started",
+		zap.String("address", s.addr),
+		zap.Int("maxBodySize", s.srv.MaxRequestBodySize))
 
 	select {
 	case <-ctx.Done():

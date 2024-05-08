@@ -39,7 +39,7 @@ func New(cfg *Config) (*Notificator, error) {
 		return nil, fmt.Errorf("cannot create vidi connection: %w", err)
 	}
 	return &Notificator{
-		authMD: metadata.Pairs("authorization", cfg.VideoAPIToken),
+		authMD: metadata.Pairs("authorization", "bearer "+cfg.VideoAPIToken),
 		logger: cfg.Logger.With(zap.String("component", "notificator")),
 		evCh:   make(chan *event.Event, defaultEventChannelLen),
 		c:      pb.NewServicesideapiClient(cc),
@@ -101,13 +101,13 @@ func (n *Notificator) processEvent(ctx context.Context, ev *event.Event) {
 		_, err = n.c.UpdateVideoStatus(metadata.NewOutgoingContext(ctx, n.authMD), &pb.UpdateVideoStatusRequest{
 			Id:     ev.VideoInfo.VideoID,
 			Status: int32(ev.VideoInfo.Status),
-		}, nil)
+		})
 	case event.KindUpdateStatusAndLocation:
 		_, err = n.c.UpdateVideo(metadata.NewOutgoingContext(ctx, n.authMD), &pb.UpdateVideoRequest{
 			Id:       ev.VideoInfo.VideoID,
 			Status:   int32(ev.VideoInfo.Status),
 			Location: ev.VideoInfo.Location,
-		}, nil)
+		})
 	}
 
 	if err != nil {

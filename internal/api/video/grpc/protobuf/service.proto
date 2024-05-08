@@ -23,6 +23,7 @@ message Video {
   string id = 1;
   int32 status = 2;
   uint64 created_at = 3;
+  string location = 4;
 }
 
 message UpdateVideoRequest {

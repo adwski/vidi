@@ -80,5 +80,5 @@ func (s *sQuotas) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 }
 
 func (s *sQuotas) view() string {
-	return tableContainer.Render(s.table.View())
+	return containerWithBorder.Render(s.table.View())
 }

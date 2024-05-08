@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"strconv"
 )
 
 type (
@@ -20,17 +21,17 @@ type (
 func newVideosScreen(videos []Video) *sVideos {
 	var (
 		columns = []table.Column{
-			{Title: "Id", Width: 4},
-			{Title: "Name", Width: 10},
+			{Title: "N", Width: 2},
+			{Title: "Name", Width: 30},
 			{Title: "Status", Width: 10},
 			{Title: "Size", Width: 10},
-			{Title: "CreatedAt", Width: 10},
+			{Title: "CreatedAt", Width: 25},
 		}
 		rows = make([]table.Row, 0, len(videos))
 	)
 
-	for _, v := range videos {
-		rows = append(rows, table.Row{v.ID, v.Name, v.Status, v.Size, v.CreatedAt})
+	for i, v := range videos {
+		rows = append(rows, table.Row{strconv.Itoa(i + 1), v.Name, v.Status, v.Size, v.CreatedAt})
 	}
 	if len(videos) == 0 {
 		rows = append(rows, table.Row{"", "<no videos to show>", "", "", ""})
@@ -87,5 +88,5 @@ func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 }
 
 func (s *sVideos) view() string {
-	return tableContainer.Render(s.table.View())
+	return containerWithBorder.Render(s.table.View())
 }

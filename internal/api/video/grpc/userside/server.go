@@ -135,12 +135,17 @@ func (srv *Server) DeleteVideo(ctx context.Context, req *pb.VideoRequest) (*pb.D
 }
 
 func videoResponse(v *model.Video) *pb.VideoResponse {
-	return &pb.VideoResponse{
+	r := &pb.VideoResponse{
 		Id:        v.ID,
-		Status:    v.Status.String(),
-		CreatedAt: v.CreatedAt.String(),
-		UploadUrl: v.UploadInfo.URL,
+		Status:    int32(v.Status),
+		CreatedAt: v.CreatedAt.UnixMilli(),
+		Name:      v.Name,
+		Size:      v.Size,
 	}
+	if v.UploadInfo != nil {
+		r.UploadUrl = v.UploadInfo.URL
+	}
+	return r
 }
 
 func getUser(ctx context.Context) (*user.User, error) {

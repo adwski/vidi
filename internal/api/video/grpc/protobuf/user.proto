@@ -39,9 +39,11 @@ message VideoRequest {
 
 message VideoResponse {
  string id = 1;
- string status = 2;
- string created_at = 3;
- string upload_url = 4;
+ int32 status = 2;
+ string name = 3;
+ uint64 size = 4;
+ int64 created_at = 5;
+ string upload_url = 6;
 }
 
 message GetVideosRequest{}

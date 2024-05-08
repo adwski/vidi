@@ -127,19 +127,22 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	// --------------------------------------------------
 	artifactName := svc.getUploadArtifactName(sessID, partNum)
 	buf := bytes.NewBuffer(ctx.Request.Body())
-	if err = svc.mediaS.Put(ctx, artifactName, buf, int64(size)); err != nil {
+	err = svc.mediaS.Put(ctx, artifactName, buf, int64(size))
+	if err != nil {
 		svc.logger.Error("error while uploading artifact",
 			zap.Int("size", size),
+			zap.Error(err),
+			zap.String("artifactName", artifactName),
 			zap.Uint64("partSize", sess.PartSize))
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
 		return
 	}
-	checksum, err := svc.mediaS.GetChecksumSHA256(ctx, artifactName)
+	checksum, err := svc.mediaS.CalcSha256(ctx, artifactName)
 	if err != nil {
-		svc.logger.Error("cannot get artifact checksum",
-			zap.Error(err),
-			zap.String("artifact", artifactName))
+		svc.logger.Error("unable to calc sha256",
+			zap.String("artifactName", artifactName))
 		ctx.Error(internalError, fasthttp.StatusInternalServerError)
+		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusNoContent)
 
@@ -149,7 +152,7 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 	go svc.notificator.Send(&event.Event{
 		PartInfo: &event.PartInfo{
 			VideoID:  sess.VideoID,
-			Checksum: checksum,
+			Checksum: checksum,           // this is already base64 encoded
 			Num:      parseUint(partNum), // getParamsFromURI ensures that partNum contains valid number
 		},
 		Kind: event.KindVideoPartUploaded,

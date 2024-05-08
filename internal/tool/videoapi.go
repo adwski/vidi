@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
+	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/dustin/go-humanize"
 	"github.com/minio/sha256-simd"
 	"go.uber.org/zap"
@@ -31,10 +32,10 @@ func (t *Tool) getVideos() ([]Video, error) {
 	for _, v := range resp.Videos {
 		videos = append(videos, Video{
 			ID:        v.Id,
-			Name:      "",
-			Status:    v.Status,
-			Size:      "",
-			CreatedAt: v.CreatedAt,
+			Name:      v.Name,
+			Status:    model.Status(v.Status).String(),
+			Size:      humanize.Bytes(v.Size),
+			CreatedAt: time.UnixMilli(v.CreatedAt).Format(time.RFC3339),
 		})
 	}
 	return videos, nil
@@ -57,15 +58,76 @@ func (t *Tool) getQuotas() ([]QuotaParam, error) {
 	}, nil
 }
 
-func (t *Tool) prepareUpload(filePath string) error {
+func (t *Tool) uploadFileNotify(name, filePath string) {
+	size, err := t.prepareUpload(filePath)
+	if err != nil {
+		t.fb <- err
+		return
+	}
+
+	// get ref to current upload
+	upload := t.state.getCurrentUserUnsafe().CurrentUpload
+
+	// create video in videoapi
+	cv, err := t.createVideo(name, size, upload.Parts)
+	if err != nil {
+		t.fb <- err
+		return
+	}
+
+	// save videoapi video id
+	upload.ID = cv.Id
+	if err = t.state.persist(); err != nil {
+		t.fb <- err
+		return
+	}
+
+	// upload parts
+	f, err := os.Open(filePath)
+	if err != nil {
+		t.fb <- fmt.Errorf("unable to open file: %w", err)
+		return
+	}
+	defer func() { _ = f.Close() }()
+	stat, err := f.Stat()
+	if err != nil {
+		t.fb <- fmt.Errorf("unable to get file stats: %w", err)
+		return
+	}
+	if uint64(stat.Size()) != size {
+		t.fb <- fmt.Errorf("file have changed during upload: %d != %d", stat.Size(), size)
+		return
+	}
+
+	var offset uint
+	for _, part := range upload.Parts {
+		resp, rErr := t.httpC.NewRequest().
+			SetBody(io.LimitReader(f, int64(part.Size))).
+			SetHeader("Content-Type", "application/x-vidi-mediapart").
+			Post(cv.UploadUrl + "/" + strconv.FormatUint(uint64(part.Num), 10))
+		if rErr != nil {
+			t.fb <- fmt.Errorf("unable to upload part: %w", rErr)
+			return
+		}
+		if resp.IsError() {
+			t.fb <- fmt.Errorf("server responded with error status: %s", resp.Status())
+			return
+		}
+		offset += part.Size
+		t.fb <- uploadProgress{completed: uint64(offset), total: size}
+	}
+	t.fb <- uploadCompleted{}
+}
+
+func (t *Tool) prepareUpload(filePath string) (uint64, error) {
 	size, err := getFileSize(filePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if err = t.checkQuotas(size); err != nil {
-		return err
+		return 0, err
 	}
-	return t.prepareParts(filePath, size)
+	return size, t.prepareParts(filePath, size)
 }
 
 func getFileSize(filePath string) (uint64, error) {
@@ -131,11 +193,11 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 	uploadInfo := &Upload{
 		Filename: filePath,
 	}
-	for i := 0; i < int(partCount); i++ {
+	for i := uint64(0); i < partCount; i++ {
 		h := sha256.New()
 		n, err := io.CopyN(h, f, partSize)
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF || i != partCount-1 {
 				return fmt.Errorf("unable to calculate sha256 sum: %w", err)
 			}
 		}
@@ -155,6 +217,6 @@ func (t *Tool) getTmpDir() string {
 }
 
 func (t *Tool) getUserMDCtx() context.Context {
-	md := metadata.New(map[string]string{"authorization": "bearer " + t.state.getCurrentUserUnsafe().Token})
+	md := metadata.Pairs("authorization", "bearer "+t.state.getCurrentUserUnsafe().Token)
 	return metadata.NewOutgoingContext(context.TODO(), md)
 }
