@@ -53,12 +53,25 @@ func (srv *Server) GetVideosByStatus(ctx context.Context, req *pb.GetByStatusReq
 	var resp pb.VideoListResponse
 	resp.Videos = make([]*pb.Video, 0, len(videos))
 	for _, v := range videos {
-		resp.Videos = append(resp.Videos, &pb.Video{
+		pbv := &pb.Video{
 			Id:        v.ID,
 			Status:    int32(v.Status),
 			CreatedAt: uint64(v.CreatedAt.Unix()),
 			Location:  v.Location,
-		})
+			Size:      v.Size,
+		}
+		if v.UploadInfo != nil {
+			pbv.Parts = make([]*pb.Part, 0, len(v.UploadInfo.Parts))
+			for _, u := range v.UploadInfo.Parts {
+				pbv.Parts = append(pbv.Parts, &pb.Part{
+					Num:      uint32(u.Num),
+					Size:     u.Size,
+					Checksum: u.Checksum,
+				})
+			}
+		}
+		resp.Videos = append(resp.Videos, pbv)
+
 	}
 	return &resp, nil
 }

@@ -31,8 +31,8 @@ type Video struct {
 }
 
 type UploadInfo struct {
-	URL   string `json:"url"`
-	Parts []Part `json:"parts"`
+	URL   string  `json:"url"`
+	Parts []*Part `json:"parts"`
 }
 
 type UserStats struct {
@@ -48,9 +48,9 @@ type UserUsage struct {
 }
 
 type CreateRequest struct {
-	Name  string `json:"name"`
-	Size  uint64 `json:"size_total"`
-	Parts []Part `json:"parts"`
+	Name  string  `json:"name"`
+	Size  uint64  `json:"size_total"`
+	Parts []*Part `json:"parts"`
 }
 
 func NewVideoNoID(userID, name string, size uint64) *Video {

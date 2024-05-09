@@ -3,6 +3,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
 	video "github.com/adwski/vidi/internal/api/video/model"
@@ -21,12 +22,12 @@ import (
 )
 
 const (
-	defaultMediaStoreArtifactName = "artifact.mp4"
+	defaultPartSize = 10 * 1024 * 1024
 )
 
 type MediaStore interface {
 	Put(ctx context.Context, name string, r io.Reader, size int64) error
-	Get(ctx context.Context, name string) (io.ReadCloser, int64, error)
+	Get(ctx context.Context, name string) (io.ReadSeekCloser, int64, error)
 }
 
 type Processor struct {
@@ -144,18 +145,28 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 }
 
 func (p *Processor) processVideo(ctx context.Context, v *pb.Video) error {
-	fullInputPath := fmt.Sprintf("%s/%s/%s", p.inputPathPrefix, v.Location, defaultMediaStoreArtifactName)
-	rc, _, err := p.st.Get(ctx, fullInputPath)
-	if err != nil {
-		return fmt.Errorf("cannot get input file: %w", err)
+	p.logger.Debug("processing video",
+		zap.String("id", v.Id),
+		zap.String("location", v.Location),
+		zap.Int("parts", len(v.Parts)),
+		zap.Uint64("size", v.Size))
+	if len(v.Parts) == 0 {
+		return errors.New("video has no parts")
+	} else if v.Size == 0 {
+		return errors.New("video has zero size")
+	} else if defaultPartSize*uint64(len(v.Parts)-1) > v.Size || v.Size > defaultPartSize*uint64(len(v.Parts)) {
+		return fmt.Errorf("incorrect parts amount(%d) for video size(%d)", len(v.Parts), v.Size)
 	}
+	mr := NewMediaReader(p.st, fmt.Sprintf("%s/%s", p.inputPathPrefix, v.Location), uint(len(v.Parts)), v.Size, defaultPartSize)
 	defer func() {
-		if errC := rc.Close(); errC != nil {
-			p.logger.Error("error closing storage reader", zap.Error(errC))
+		if err := mr.Close(); err != nil {
+			p.logger.Error("error closing media reader",
+				zap.Error(err),
+				zap.String("vid", v.Id))
 		}
 	}()
 	outLocation := fmt.Sprintf("%s/%s", p.outputPathPrefix, v.Location)
-	if err = p.ProcessFileFromReader(ctx, rc, outLocation); err != nil {
+	if err := p.ProcessFileFromReader(ctx, mr, outLocation); err != nil {
 		return fmt.Errorf("error processing file: %w", err)
 	}
 	return nil

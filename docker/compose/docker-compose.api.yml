@@ -32,7 +32,7 @@ services:
       dockerfile: docker/videoapi.Dockerfile
       target: dev
     environment:
-      VIDI_API_PREFIX: /api/video
+      VIDI_API_PREFIX: /api
       VIDI_DATABASE_DSN: postgres://videoapi:videoapi@postgres:5432/videoapi?sslmode=disable
       VIDI_REDIS_DSN: redis://redis:6379/0
       VIDI_MEDIA_URL_WATCH: http://localhost:80/watch
@@ -42,6 +42,8 @@ services:
       VIDI_SERVER_GRPC_SVC_ADDRESS: ":8282"
     expose:
       - 8080
+    ports:
+      - "8282:8282"
     networks:
       - vidi
     depends_on:

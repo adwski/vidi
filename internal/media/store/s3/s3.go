@@ -47,7 +47,7 @@ func (s *Store) CalcSha256(ctx context.Context, name string) (string, error) {
 	return base64.StdEncoding.EncodeToString(shaW.Sum(nil)), nil
 }
 
-func (s *Store) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
+func (s *Store) Get(ctx context.Context, name string) (io.ReadSeekCloser, int64, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, 0, fmt.Errorf("cannot retrieve object from s3: %w", err)

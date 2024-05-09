@@ -4,6 +4,7 @@ package segmentation
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/Eyevinn/mp4ff/mp4"
@@ -126,7 +127,7 @@ func MakeIntervals(timescale uint32, points []Point, track *mp4.TrakBox) ([]Inte
 }
 
 // GetSamplesData retrieves media data for specified sample interval.
-func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval) ([]mp4.FullSample, error) {
+func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval, rs io.ReadSeeker) ([]mp4.FullSample, error) {
 	if stbl.Stco == nil {
 		return nil, fmt.Errorf("stco box is not present, co64 present: %v", stbl.Co64 != nil)
 	}
@@ -152,8 +153,24 @@ func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval) ([]
 		if stbl.Ctts != nil {
 			cto = stbl.Ctts.GetCompositionTimeOffset(sampleNum)
 		}
-		offsetInMdatData := uint64(offset) - payloadStart
-		sampleData := mdat.Data[offsetInMdatData : offsetInMdatData+uint64(size)]
+		var sampleData []byte
+		if mdat.GetLazyDataSize() > 0 {
+			if rs == nil {
+				return nil, fmt.Errorf("mdat decoded in lazy mode, but mdat reader is nil")
+			}
+			_, err = rs.Seek(offset, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+			sampleData = make([]byte, size)
+			_, err = io.ReadFull(rs, sampleData)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			offsetInMdatData := uint64(offset) - payloadStart
+			sampleData = mdat.Data[offsetInMdatData : offsetInMdatData+uint64(size)]
+		}
 		samples = append(samples, mp4.FullSample{
 			Sample: mp4.Sample{
 				Flags:                 translateSampleFlagsForFragment(stbl, sampleNum),

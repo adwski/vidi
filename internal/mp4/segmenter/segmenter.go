@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
@@ -35,11 +36,13 @@ type Segmenter struct {
 	logger          *zap.Logger
 	boxStoreFunc    BoxStoreFunc
 	segmentDuration time.Duration
+	mdatRS          io.ReadSeeker
 }
 
-func NewSegmenter(logger *zap.Logger, segDuration time.Duration, boxStoreFunc BoxStoreFunc) *Segmenter {
+func NewSegmenter(logger *zap.Logger, mdatRS io.ReadSeeker, segDuration time.Duration, boxStoreFunc BoxStoreFunc) *Segmenter {
 	return &Segmenter{
 		logger:          logger,
+		mdatRS:          mdatRS,
 		boxStoreFunc:    boxStoreFunc,
 		segmentDuration: segDuration,
 	}
@@ -134,7 +137,7 @@ func (s *Segmenter) makeAndWriteSegments(
 		segNum := i + 1
 		segTrackID := segTracks[track.Tkhd.TrackID].Tkhd.TrackID
 		// Get segments data for segment
-		samplesData, err := segmentation.GetSamplesData(mdat, track.Mdia.Minf.Stbl, segInterval)
+		samplesData, err := segmentation.GetSamplesData(mdat, track.Mdia.Minf.Stbl, segInterval, s.mdatRS)
 		if err != nil {
 			return fmt.Errorf("cannot get samples data: %w", err)
 		}

@@ -64,7 +64,7 @@ func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) 
 		VideoID:  video.ID,
 		Location: video.Location,
 	}
-	if err = svc.uploadSessions.Set(ctx, sess); err != nil {
+	if err = svc.watchSessions.Set(ctx, sess); err != nil {
 		return "", errors.Join(model.ErrSessionStorage, err)
 	}
 	return svc.getWatchURL(sessID), nil

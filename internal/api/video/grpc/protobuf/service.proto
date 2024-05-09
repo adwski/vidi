@@ -23,7 +23,15 @@ message Video {
   string id = 1;
   int32 status = 2;
   uint64 created_at = 3;
-  string location = 4;
+  uint64 size = 4;
+  string location = 5;
+  repeated Part parts = 6;
+}
+
+message Part {
+  uint32 num = 1;
+  uint64 size = 2;
+  string checksum = 3;
 }
 
 message UpdateVideoRequest {

@@ -68,10 +68,10 @@ func (srv *Server) CreateVideo(ctx context.Context, req *pb.CreateVideoRequest) 
 	var r = &model.CreateRequest{
 		Name:  req.Name,
 		Size:  req.Size,
-		Parts: make([]model.Part, 0, len(req.Parts)),
+		Parts: make([]*model.Part, 0, len(req.Parts)),
 	}
 	for _, p := range req.Parts {
-		r.Parts = append(r.Parts, model.Part{
+		r.Parts = append(r.Parts, &model.Part{
 			Num:      uint(p.Num),
 			Size:     p.Size,
 			Checksum: p.Checksum,

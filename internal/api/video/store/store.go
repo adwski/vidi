@@ -5,7 +5,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-
 	"github.com/adwski/vidi/internal/api/store"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/jackc/pgerrcode"
@@ -52,6 +51,7 @@ func (s *Store) DeleteUploadedParts(ctx context.Context, vid string) error {
 
 func (s *Store) UpdatePart(ctx context.Context, vid string, part *model.Part) error {
 	// TODO: may be make all this single pg transaction?
+	// This query actually compares base64 encoded checksum strings, but I guess this is ok
 	query := `update upload_parts set status = $1 where video_id = $2 and num = $3 and checksum = $4`
 	tag, err := s.Pool().Exec(ctx, query, model.PartStatusOK, vid, part.Num, part.Checksum)
 	if err != nil {
@@ -69,6 +69,7 @@ func (s *Store) UpdatePart(ctx context.Context, vid string, part *model.Part) er
 	}
 
 	// check if all parts are ok
+	// TODO: this query runs on every part update, should check upload completion in some other (more optimal) way
 	var notOkCnt uint
 	query = `select count(*) as cnt from upload_parts where video_id = $1 and status != $2`
 	if err = s.Pool().QueryRow(ctx, query, vid, model.PartStatusOK).Scan(&notOkCnt); err != nil {
@@ -127,12 +128,12 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 		return vi, nil
 	}
 	vi.UploadInfo = &model.UploadInfo{}
-	vi.UploadInfo.Parts, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (model.Part, error) {
+	vi.UploadInfo.Parts, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Part, error) {
 		var part model.Part
 		if err = row.Scan(&part.Num, &part.Status, &part.Size, &part.Checksum); err != nil {
-			return part, fmt.Errorf("error while scanning row: %w", err)
+			return &part, fmt.Errorf("error while scanning row: %w", err)
 		}
-		return part, nil
+		return &part, nil
 	})
 	return vi, nil
 }
@@ -164,7 +165,7 @@ func (s *Store) Delete(ctx context.Context, id, userID string) error {
 }
 
 func (s *Store) GetListByStatus(ctx context.Context, status model.Status) ([]*model.Video, error) {
-	query := `select id, user_id, location, created_at from videos where status = $1`
+	query := `select id, user_id, location, size, created_at from videos where status = $1`
 	rows, err := s.Pool().Query(ctx, query, int(status))
 	if err != nil {
 		err = model.ErrNotFound
@@ -173,7 +174,7 @@ func (s *Store) GetListByStatus(ctx context.Context, status model.Status) ([]*mo
 	videos, errR := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Video, error) {
 		var vi model.Video
 		vi.Status = status
-		if errS := row.Scan(&vi.ID, &vi.UserID, &vi.Location, &vi.CreatedAt); errS != nil {
+		if errS := row.Scan(&vi.ID, &vi.UserID, &vi.Location, &vi.Size, &vi.CreatedAt); errS != nil {
 			return nil, fmt.Errorf("error while scanning row: %w", errS)
 		}
 		return &vi, nil
@@ -183,6 +184,27 @@ func (s *Store) GetListByStatus(ctx context.Context, status model.Status) ([]*mo
 	}
 	if len(videos) == 0 {
 		return nil, model.ErrNotFound
+	}
+
+	for _, vi := range videos {
+		query = `select num, status, size, checksum from upload_parts where video_id = $1`
+		rows, err = s.Pool().Query(ctx, query, vi.ID)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return nil, handleDBErr(err)
+			}
+		}
+		vi.UploadInfo = &model.UploadInfo{}
+		vi.UploadInfo.Parts, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (*model.Part, error) {
+			var part model.Part
+			if err = row.Scan(&part.Num, &part.Status, &part.Size, &part.Checksum); err != nil {
+				return &part, fmt.Errorf("error while scanning row: %w", err)
+			}
+			return &part, nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error while collecting rows: %w", errR)
+		}
 	}
 	return videos, nil
 }

@@ -14,17 +14,20 @@ import (
 // ProcessFileFromReader segments mp4 file provided as reader using specified segment duration
 // and writes resulting segments to segment writer.
 // It also generates StaticMPD schema.
-func (p *Processor) ProcessFileFromReader(ctx context.Context, r io.Reader, location string) error {
+func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker, location string) error {
 	p.logger.Info("mp4 processing started")
-	// TODO This approach reads whole file into memory, should use lazy read in the future
-	mF, err := mp4ff.DecodeFile(r)
+	// Decoding in lazy mode.
+	// Lazy mode will decode everything but will skip samples data in mdat.
+	// Segmenter will read samples data directly from reader when necessary.
+	mF, err := mp4ff.DecodeFile(rs, mp4ff.WithDecodeMode(mp4ff.DecModeLazyMdat))
 	if err != nil {
-		return fmt.Errorf("cannot decode mp4 from reader: %w", err)
+		return fmt.Errorf("cannot lazy decode mp4 from reader: %w", err)
 	}
 	p.logger.Debug("mp4 decoded")
 
 	tracks, timescale, totalDuration, errS := segmenter.NewSegmenter(
 		p.logger,
+		rs,
 		p.segmentDuration,
 		func(ctx context.Context, name string, box mp4ff.BoxStructure, size uint64) error {
 			return p.storeBox(ctx, fmt.Sprintf("%s/%s", location, name), box, size)
