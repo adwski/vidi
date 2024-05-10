@@ -44,19 +44,23 @@ func segmentFile(fileName, outdir string, segDuration time.Duration) {
 	var (
 		logger     = logging.GetZapLoggerConsole()
 		mediaStore = file.NewStore("", outdir)
-		proc       = processor.New(&processor.Config{
+		proc, err  = processor.New(&processor.Config{
 			Logger:          logger,
 			Store:           mediaStore,
 			SegmentDuration: segDuration,
 		})
 	)
+	if err != nil {
+		logger.Error("cannot init processor", zap.Error(err))
+		return
+	}
 	f, err := os.Open(fileName)
 	if err != nil {
 		logger.Error("cannot open file", zap.Error(err))
 		return
 	}
 	defer func() { _ = f.Close() }()
-	err = proc.ProcessFileFromReader(context.Background(), f, "")
+	_, err = proc.ProcessFileFromReader(context.Background(), f, "")
 	if err != nil {
 		logger.Error("error processing file", zap.Error(err))
 		return

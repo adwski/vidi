@@ -2,8 +2,8 @@ package event
 
 const (
 	KindUpdateStatus = iota + 1
-	KindUpdateStatusAndLocation
 	KindVideoPartUploaded
+	KindVideoReady
 )
 
 // Event is a Video API notification event.
@@ -22,5 +22,6 @@ type PartInfo struct {
 type VideoInfo struct {
 	VideoID  string
 	Location string
+	Meta     []byte
 	Status   int
 }

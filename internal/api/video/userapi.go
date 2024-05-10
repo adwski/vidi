@@ -19,6 +19,7 @@ func (svc *Service) GetQuotas(ctx context.Context, usr *user.User) (*model.UserS
 	if err != nil {
 		return nil, errors.Join(model.ErrStorage, err)
 	}
+
 	return &model.UserStats{
 		VideosQuota: svc.quotas.VideosPerUser,
 		VideosUsage: usage.Videos,
@@ -43,21 +44,21 @@ func (svc *Service) GetVideos(ctx context.Context, usr *user.User) ([]*model.Vid
 	return videos, nil
 }
 
-func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) (string, error) {
+func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) ([]byte, error) {
 	video, err := svc.s.Get(ctx, vid, usr.ID)
 	if err != nil {
-		return "", errors.Join(model.ErrStorage, err)
+		return nil, errors.Join(model.ErrStorage, err)
 	}
 	if video.IsErrored() {
-		return "", model.ErrState
+		return nil, model.ErrState
 	}
 	if !video.IsReady() {
-		return "", model.ErrNotReady
+		return nil, model.ErrNotReady
 	}
 	var sessID string
 	sessID, err = svc.idGen.Get()
 	if err != nil {
-		return "", errors.Join(errors.New("cannot generate watch session id"), err)
+		return nil, errors.Join(errors.New("cannot generate watch session id"), err)
 	}
 	sess := &session.Session{
 		ID:       sessID,
@@ -65,9 +66,13 @@ func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) 
 		Location: video.Location,
 	}
 	if err = svc.watchSessions.Set(ctx, sess); err != nil {
-		return "", errors.Join(model.ErrSessionStorage, err)
+		return nil, errors.Join(model.ErrSessionStorage, err)
 	}
-	return svc.getWatchURL(sessID), nil
+	bMPD, err := video.PlaybackMeta.StaticMPD(svc.getWatchBaseURL(sess.ID))
+	if err != nil {
+		return nil, errors.Join(model.ErrInternal, err)
+	}
+	return bMPD, nil
 }
 
 func (svc *Service) DeleteVideo(ctx context.Context, usr *user.User, vid string) error {

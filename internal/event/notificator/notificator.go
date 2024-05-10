@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
+	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -79,7 +80,7 @@ func (n *Notificator) processEvent(ctx context.Context, ev *event.Event) {
 			n.logger.Error("PartInfo is nil", zap.Int("kind", ev.Kind))
 			return
 		}
-	case event.KindUpdateStatus, event.KindUpdateStatusAndLocation:
+	case event.KindUpdateStatus, event.KindVideoReady:
 		if ev.VideoInfo == nil {
 			n.logger.Error("VideoInfo is nil", zap.Int("kind", ev.Kind))
 			return
@@ -102,11 +103,11 @@ func (n *Notificator) processEvent(ctx context.Context, ev *event.Event) {
 			Id:     ev.VideoInfo.VideoID,
 			Status: int32(ev.VideoInfo.Status),
 		})
-	case event.KindUpdateStatusAndLocation:
+	case event.KindVideoReady:
 		_, err = n.c.UpdateVideo(metadata.NewOutgoingContext(ctx, n.authMD), &pb.UpdateVideoRequest{
-			Id:       ev.VideoInfo.VideoID,
-			Status:   int32(ev.VideoInfo.Status),
-			Location: ev.VideoInfo.Location,
+			Id:           ev.VideoInfo.VideoID,
+			Status:       int32(model.StatusReady),
+			PlaybackMeta: ev.VideoInfo.Meta,
 		})
 	}
 

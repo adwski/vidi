@@ -55,17 +55,21 @@ func (srv *Server) watchVideo(c echo.Context) error {
 	if !ok {
 		return err
 	}
-	watchURL, err := srv.videoSvc.WatchVideo(c.Request().Context(), usr, c.Param("id"))
+	bMPD, err := srv.videoSvc.WatchVideo(c.Request().Context(), usr, c.Param("id"))
 	switch {
 	case err == nil:
-		return c.JSON(http.StatusAccepted, &httpmodel.WatchResponse{WatchURL: watchURL})
+		return c.XMLBlob(http.StatusOK, bMPD)
+	case errors.Is(err, model.ErrNotFound):
+		return c.JSON(http.StatusNotFound, &common.Response{
+			Error: err.Error(),
+		})
 	case errors.Is(err, model.ErrNotReady),
 		errors.Is(err, model.ErrState):
 		return c.JSON(http.StatusMethodNotAllowed, &common.Response{
 			Error: err.Error(),
 		})
 	default:
-		srv.logger.Error("watchURL failed", zap.Error(err))
+		srv.logger.Error("watchVideo failed", zap.Error(err))
 		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
 	}
 }

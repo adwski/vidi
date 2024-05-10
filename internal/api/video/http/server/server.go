@@ -62,7 +62,7 @@ func NewServer(cfg *Config, videoSvc *video.Service) (*Server, error) {
 	// Watch zone
 	watchAPI := api.Group("/watch")
 	watchAPI.Use(cfg.Auth.EchoAuthUserSide())
-	watchAPI.POST("/:id", srv.watchVideo)
+	watchAPI.GET("/:id", srv.watchVideo)
 
 	// Quota zone
 	quotaAPI := api.Group("/quota")

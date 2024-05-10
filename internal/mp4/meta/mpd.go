@@ -11,11 +11,14 @@ import (
 // StaticMPD generates media presentation description (MPD) corresponding to current state of Meta.
 // Based on https://github.com/Eyevinn/dash-mpd/blob/main/examples/newmpd_test.go
 // Refs: ISO/IEC 23009-1 4.3 DASH data model overview.
-func (mc *Meta) StaticMPD() ([]byte, error) {
+func (mt *Meta) StaticMPD(baseURL string) ([]byte, error) {
 	// Create StaticMPD
 	m := mpd.NewMPD(mpd.STATIC_TYPE)
 	m.Profiles = mpd.PROFILE_ONDEMAND
-	m.MediaPresentationDuration = mpd.Ptr(mpd.Duration(mc.Duration))
+	m.BaseURL = append(m.BaseURL, &mpd.BaseURLType{
+		Value: mpd.AnyURI(baseURL),
+	})
+	m.MediaPresentationDuration = mpd.Ptr(mpd.Duration(mt.Duration))
 
 	// Create Period
 	p := mpd.NewPeriod()
@@ -23,7 +26,7 @@ func (mc *Meta) StaticMPD() ([]byte, error) {
 	m.AppendPeriod(p)
 
 	// Create adaptation sets
-	for _, track := range mc.Tracks {
+	for _, track := range mt.Tracks {
 		p.AppendAdaptationSet(track.makeAdaptationSet())
 	}
 

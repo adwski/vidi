@@ -9,6 +9,7 @@ import (
 	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
 	"github.com/adwski/vidi/internal/event/notificator"
+	"github.com/vmihailenco/msgpack/v5"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -115,7 +116,8 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 	p.logger.Info("got videos for processing", zap.Int("count", len(videos)))
 
 	for _, v := range videos {
-		if err = p.processVideo(ctx, v); err != nil {
+		bMPD, err := p.processVideo(ctx, v)
+		if err != nil {
 			// TODO In the future we should distinguish between errors caused by video content
 			//  and any other error. For example i/o errors are related to other failures
 			//  and in such cases video processing could be retried later. (So we need retry mechanism).
@@ -131,31 +133,31 @@ func (p *Processor) checkAndProcessVideos(ctx context.Context) {
 				zap.Error(err))
 			continue
 		}
-		p.logger.Debug("video processed successfully",
-			zap.String("id", v.Id))
 		p.notificator.Send(&event.Event{
 			VideoInfo: &event.VideoInfo{
 				VideoID: v.Id,
-				Status:  int(video.StatusReady),
+				Meta:    bMPD,
 			},
-			Kind: event.KindUpdateStatus,
+			Kind: event.KindVideoReady,
 		})
+		p.logger.Debug("video processed successfully",
+			zap.String("id", v.Id))
 	}
 	p.logger.Debug("processing done")
 }
 
-func (p *Processor) processVideo(ctx context.Context, v *pb.Video) error {
+func (p *Processor) processVideo(ctx context.Context, v *pb.Video) ([]byte, error) {
 	p.logger.Debug("processing video",
 		zap.String("id", v.Id),
 		zap.String("location", v.Location),
 		zap.Int("parts", len(v.Parts)),
 		zap.Uint64("size", v.Size))
 	if len(v.Parts) == 0 {
-		return errors.New("video has no parts")
+		return nil, errors.New("video has no parts")
 	} else if v.Size == 0 {
-		return errors.New("video has zero size")
+		return nil, errors.New("video has zero size")
 	} else if defaultPartSize*uint64(len(v.Parts)-1) > v.Size || v.Size > defaultPartSize*uint64(len(v.Parts)) {
-		return fmt.Errorf("incorrect parts amount(%d) for video size(%d)", len(v.Parts), v.Size)
+		return nil, fmt.Errorf("incorrect parts amount(%d) for video size(%d)", len(v.Parts), v.Size)
 	}
 	mr := NewMediaReader(p.st, fmt.Sprintf("%s/%s", p.inputPathPrefix, v.Location), uint(len(v.Parts)), v.Size, defaultPartSize)
 	defer func() {
@@ -166,8 +168,13 @@ func (p *Processor) processVideo(ctx context.Context, v *pb.Video) error {
 		}
 	}()
 	outLocation := fmt.Sprintf("%s/%s", p.outputPathPrefix, v.Location)
-	if err := p.ProcessFileFromReader(ctx, mr, outLocation); err != nil {
-		return fmt.Errorf("error processing file: %w", err)
+	playbackMeta, err := p.ProcessFileFromReader(ctx, mr, outLocation)
+	if err != nil {
+		return nil, fmt.Errorf("error processing file: %w", err)
 	}
-	return nil
+	b, err := msgpack.Marshal(playbackMeta)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshall playback meta to msgpack: %w", err)
+	}
+	return b, nil
 }

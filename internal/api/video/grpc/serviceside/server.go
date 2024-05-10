@@ -80,7 +80,7 @@ func (srv *Server) UpdateVideo(ctx context.Context, req *pb.UpdateVideoRequest) 
 	if err := checkServiceClaims(ctx); err != nil {
 		return nil, err
 	}
-	err := srv.videoSvc.UpdateVideoStatusAndLocation(ctx, req.Id, req.Location, model.Status(req.Status))
+	err := srv.videoSvc.UpdateVideoStatusAndMeta(ctx, req.Id, model.Status(req.Status), req.PlaybackMeta)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

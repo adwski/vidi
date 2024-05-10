@@ -1,27 +1,26 @@
 package processor
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"github.com/adwski/vidi/internal/mp4/meta"
 	"io"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
-	"github.com/adwski/vidi/internal/mp4"
 	"github.com/adwski/vidi/internal/mp4/segmenter"
 )
 
 // ProcessFileFromReader segments mp4 file provided as reader using specified segment duration
 // and writes resulting segments to segment writer.
 // It also generates StaticMPD schema.
-func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker, location string) error {
+func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker, location string) (*meta.Meta, error) {
 	p.logger.Info("mp4 processing started")
 	// Decoding in lazy mode.
 	// Lazy mode will decode everything but will skip samples data in mdat.
 	// Segmenter will read samples data directly from reader when necessary.
 	mF, err := mp4ff.DecodeFile(rs, mp4ff.WithDecodeMode(mp4ff.DecModeLazyMdat))
 	if err != nil {
-		return fmt.Errorf("cannot lazy decode mp4 from reader: %w", err)
+		return nil, fmt.Errorf("cannot lazy decode mp4 from reader: %w", err)
 	}
 	p.logger.Debug("mp4 decoded")
 
@@ -33,27 +32,15 @@ func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker,
 			return p.storeBox(ctx, fmt.Sprintf("%s/%s", location, name), box, size)
 		}).SegmentMP4(ctx, mF)
 	if errS != nil {
-		return fmt.Errorf("cannot segment mp4 file: %w", errS)
+		return nil, fmt.Errorf("cannot segment mp4 file: %w", errS)
 	}
 
-	bMPD, errMPD := p.constructMetadataAndGenerateMPD(tracks, timescale, totalDuration)
-	if errMPD != nil {
-		return fmt.Errorf("cannot generate StaticMPD: %w", errMPD)
+	playbackMeta, err := p.generatePlaybackMeta(tracks, timescale, totalDuration)
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate playback meta: %w", err)
 	}
-	p.logger.Debug("mpd generated successfully")
-	if err = p.storeBytes(ctx, fmt.Sprintf("%s/%s", location, mp4.MPDSuffix), bMPD); err != nil {
-		return err
-	}
-
 	p.logger.Info("mp4 file processed successfully")
-	return nil
-}
-
-func (p *Processor) storeBytes(ctx context.Context, name string, artifact []byte) error {
-	if err := p.st.Put(ctx, name, bytes.NewReader(artifact), int64(len(artifact))); err != nil {
-		return fmt.Errorf("cannot write byte artifact: %w", err)
-	}
-	return nil
+	return playbackMeta, nil
 }
 
 func (p *Processor) storeBox(ctx context.Context, name string, box mp4ff.BoxStructure, size uint64) error {

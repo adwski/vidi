@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"github.com/adwski/vidi/internal/mp4/meta"
 	"time"
 )
 
@@ -16,18 +17,21 @@ var (
 	ErrNotFound      = errors.New("video not found")
 	ErrAlreadyExists = errors.New("video with this id already exists")
 
-	ErrEmptyLocation = errors.New("empty location")
+	ErrStaticMPD           = errors.New("unable to generate static mpd")
+	ErrInvalidPlaybackMeta = errors.New("invalid playback meta")
+	ErrEmptyPlaybackMeta   = errors.New("empty playback meta")
 )
 
 type Video struct {
-	CreatedAt  time.Time   `json:"created_at"`
-	ID         string      `json:"id"`
-	UserID     string      `json:"user_id"`
-	Name       string      `json:"name"`
-	Location   string      `json:"location,omitempty"`
-	Status     Status      `json:"status,omitempty"`
-	Size       uint64      `json:"size,omitempty"`
-	UploadInfo *UploadInfo `json:"upload_info,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	ID           string      `json:"id"`
+	UserID       string      `json:"user_id"`
+	Name         string      `json:"name"`
+	Location     string      `json:"location,omitempty"`
+	Status       Status      `json:"status,omitempty"`
+	Size         uint64      `json:"size,omitempty"`
+	UploadInfo   *UploadInfo `json:"upload_info,omitempty"`
+	PlaybackMeta *meta.Meta  `json:"-"`
 }
 
 type UploadInfo struct {

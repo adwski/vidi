@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/adwski/vidi/internal/media/store"
+	"github.com/minio/minio-go/v7"
 	"github.com/minio/sha256-simd"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
-
-	"github.com/adwski/vidi/internal/media/store"
-
-	"github.com/minio/minio-go/v7"
-	"go.uber.org/zap"
 )
 
 // Store is media store that uses s3 compatible storage.
@@ -22,14 +20,10 @@ type Store struct {
 }
 
 func (s *Store) Put(ctx context.Context, name string, r io.Reader, size int64) error {
-	info, err := s.client.PutObject(ctx, s.bucket, name, r, size, minio.PutObjectOptions{DisableMultipart: true})
+	_, err := s.client.PutObject(ctx, s.bucket, name, r, size, minio.PutObjectOptions{DisableMultipart: true})
 	if err != nil {
 		return fmt.Errorf("cannot store object in s3: %w", err)
 	}
-	s.logger.Debug("object stored",
-		zap.String("location", name),
-		zap.String("bucket", info.Bucket),
-		zap.Int64("size", info.Size))
 	return nil
 }
 

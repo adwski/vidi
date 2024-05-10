@@ -8,7 +8,6 @@ import (
 
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/generators"
-	"github.com/adwski/vidi/internal/mp4"
 	sessionStore "github.com/adwski/vidi/internal/session/store"
 	"go.uber.org/zap"
 )
@@ -81,6 +80,6 @@ func (svc *Service) getUploadURL(sessID string) string {
 	return fmt.Sprintf("%s/%s", svc.uploadURLPrefix, sessID)
 }
 
-func (svc *Service) getWatchURL(sessID string) string {
-	return fmt.Sprintf("%s/%s/%s", svc.watchURLPrefix, sessID, mp4.MPDSuffix)
+func (svc *Service) getWatchBaseURL(sessID string) string {
+	return fmt.Sprintf("%s/%s/", svc.watchURLPrefix, sessID) // trailing / is important!
 }

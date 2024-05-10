@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/adwski/vidi/internal/api/store"
 	"github.com/adwski/vidi/internal/api/video/model"
+	"github.com/adwski/vidi/internal/mp4/meta"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -112,9 +113,9 @@ func (s *Store) Create(ctx context.Context, vi *model.Video) error {
 }
 
 func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error) {
-	vi := &model.Video{ID: id, UserID: userID}
-	query := `select location, status, created_at from videos where id = $1 and user_id = $2`
-	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status, &vi.CreatedAt); err != nil {
+	vi := &model.Video{ID: id, UserID: userID, PlaybackMeta: &meta.Meta{}}
+	query := `select location, status, playback_meta, created_at from videos where id = $1 and user_id = $2`
+	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status, &vi.PlaybackMeta, &vi.CreatedAt); err != nil {
 		return nil, handleDBErr(err)
 	}
 
@@ -216,8 +217,8 @@ func (s *Store) UpdateStatus(ctx context.Context, vi *model.Video) error {
 }
 
 func (s *Store) Update(ctx context.Context, vi *model.Video) error {
-	query := `update videos set status = $2, location = $3 where id = $1`
-	tag, err := s.Pool().Exec(ctx, query, vi.ID, int(vi.Status), vi.Location)
+	query := `update videos set status = $2, playback_meta = $3 where id = $1`
+	tag, err := s.Pool().Exec(ctx, query, vi.ID, int(vi.Status), vi.PlaybackMeta)
 	return handleTagOneRowAndErr(&tag, err)
 }
 
