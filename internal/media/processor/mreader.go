@@ -187,7 +187,7 @@ func (mr *MediaReader) Seek(offset int64, whence int) (int64, error) {
 			return 0, errors.New("invalid offset for whence 1")
 		}
 		partNum = (mr.pos + uint64(offset)) / mr.partSize
-		pOffset = int64(mr.pos + uint64(offset)%mr.partSize)
+		pOffset = int64((mr.pos + uint64(offset)) % mr.partSize)
 	case io.SeekEnd:
 		if offset > 0 {
 			// offset should be negative for io.SeekEnd
