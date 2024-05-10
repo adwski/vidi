@@ -116,6 +116,8 @@ func (srv *Server) erroredResponse(c echo.Context, err error) error {
 		return c.JSON(http.StatusNotFound, &common.Response{
 			Error: err.Error(),
 		})
+	case errors.Is(err, model.ErrNotResumable):
+		return c.JSON(http.StatusNotAcceptable, &common.Response{Error: err.Error()})
 	default:
 		srv.logger.Error("internal error", zap.Error(err))
 		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)

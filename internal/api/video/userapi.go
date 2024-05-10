@@ -7,6 +7,7 @@ import (
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/session"
+	"go.uber.org/zap"
 )
 
 const (
@@ -28,10 +29,29 @@ func (svc *Service) GetQuotas(ctx context.Context, usr *user.User) (*model.UserS
 	}, nil
 }
 
-func (svc *Service) GetVideo(ctx context.Context, usr *user.User, vid string) (*model.Video, error) {
+func (svc *Service) GetVideo(ctx context.Context, usr *user.User, vid string, resumeUpload bool) (*model.Video, error) {
 	video, err := svc.s.Get(ctx, vid, usr.ID)
 	if err != nil {
 		return nil, errors.Join(model.ErrStorage, err)
+	}
+	if resumeUpload {
+		if !video.Resumable() {
+			return nil, model.ErrNotResumable
+		}
+		sess := &session.Session{
+			ID:       video.Location,
+			VideoID:  video.ID,
+			PartSize: defaultPartSize,
+		}
+		if err = svc.uploadSessions.Set(ctx, sess); err != nil {
+			return nil, errors.Join(model.ErrSessionStorage, err)
+		}
+		video.UploadInfo.URL = svc.getUploadURL(sess.ID)
+		svc.logger.Debug("got upload resume request",
+			zap.String("vid", vid),
+			zap.String("session", sess.ID),
+			zap.Int("parts", len(video.UploadInfo.Parts)),
+		)
 	}
 	return video, nil
 }
@@ -101,6 +121,7 @@ func (svc *Service) CreateVideo(ctx context.Context, usr *user.User, req *model.
 		if err != nil {
 			return nil, errors.Join(errors.New("cannot generate location id"), err)
 		}
+
 		if err = svc.s.Create(ctx, newVideo); err == nil {
 			break
 		}

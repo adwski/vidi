@@ -4,6 +4,7 @@ package segmentation
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"time"
 
@@ -60,6 +61,7 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 		// since segment point can only be placed at sync sample.
 		segmentationPoints = make([]Point, 0, stss.EntryCount())
 	)
+	spew.Dump(stss.EntryCount())
 
 	if stss.EntryCount() > 1 {
 		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[0])

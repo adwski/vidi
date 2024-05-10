@@ -27,7 +27,8 @@ func (srv *Server) getVideo(c echo.Context) error {
 	if !ok {
 		return err
 	}
-	vide, err := srv.videoSvc.GetVideo(c.Request().Context(), usr, c.Param("id"))
+	vide, err := srv.videoSvc.GetVideo(c.Request().Context(), usr,
+		c.Param("id"), c.QueryParam("upload") == "resume")
 	if err == nil {
 		return c.JSON(http.StatusOK, httpmodel.NewVideoResponse(vide))
 	}

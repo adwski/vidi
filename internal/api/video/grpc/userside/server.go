@@ -60,7 +60,6 @@ func (srv *Server) GetQuota(ctx context.Context, _ *pb.GetQuotaRequest) (*pb.Quo
 
 // CreateVideo handles video create & upload request.
 func (srv *Server) CreateVideo(ctx context.Context, req *pb.CreateVideoRequest) (*pb.VideoResponse, error) {
-	// TODO handle partial upload.
 	usr, err := getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -89,10 +88,12 @@ func (srv *Server) GetVideo(ctx context.Context, req *pb.VideoRequest) (*pb.Vide
 	if err != nil {
 		return nil, err
 	}
-	vide, err := srv.videoSvc.GetVideo(ctx, usr, req.Id)
+	vide, err := srv.videoSvc.GetVideo(ctx, usr, req.Id, req.ResumeUpload)
 	switch {
 	case errors.Is(err, model.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "video is not found")
+	case errors.Is(err, model.ErrNotResumable):
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	case err != nil:
 		srv.logger.Error("GetVideo failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "cannot get video")
@@ -118,7 +119,7 @@ func (srv *Server) GetVideos(ctx context.Context, _ *pb.GetVideosRequest) (*pb.V
 	}
 	return &resp, nil
 }
-func (srv *Server) DeleteVideo(ctx context.Context, req *pb.VideoRequest) (*pb.DeleteVideoResponse, error) {
+func (srv *Server) DeleteVideo(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteVideoResponse, error) {
 	usr, err := getUser(ctx)
 	if err != nil {
 		return nil, err
@@ -128,8 +129,8 @@ func (srv *Server) DeleteVideo(ctx context.Context, req *pb.VideoRequest) (*pb.D
 	case errors.Is(err, model.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "video is not found")
 	case err != nil:
-		srv.logger.Error("GetVideos failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "cannot get videos")
+		srv.logger.Error("DeleteVideo failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "cannot delete video")
 	}
 	return nil, nil
 }
@@ -142,8 +143,18 @@ func videoResponse(v *model.Video) *pb.VideoResponse {
 		Name:      v.Name,
 		Size:      v.Size,
 	}
-	if v.UploadInfo != nil {
-		r.UploadUrl = v.UploadInfo.URL
+	if v.UploadInfo == nil {
+		return r
+	}
+	r.UploadUrl = v.UploadInfo.URL
+	r.UploadParts = make([]*pb.VideoPart, 0, len(v.UploadInfo.Parts))
+	for _, p := range v.UploadInfo.Parts {
+		r.UploadParts = append(r.UploadParts, &pb.VideoPart{
+			Num:      uint32(p.Num),
+			Status:   int32(p.Status),
+			Size:     p.Size,
+			Checksum: p.Checksum,
+		})
 	}
 	return r
 }

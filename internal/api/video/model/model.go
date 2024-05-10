@@ -17,7 +17,8 @@ var (
 	ErrNotFound      = errors.New("video not found")
 	ErrAlreadyExists = errors.New("video with this id already exists")
 
-	ErrStaticMPD           = errors.New("unable to generate static mpd")
+	ErrNotResumable = errors.New("upload is not resumable")
+
 	ErrInvalidPlaybackMeta = errors.New("invalid playback meta")
 	ErrEmptyPlaybackMeta   = errors.New("empty playback meta")
 )
@@ -73,4 +74,8 @@ func (v *Video) IsReady() bool {
 
 func (v *Video) IsErrored() bool {
 	return v.Status == StatusError
+}
+
+func (v *Video) Resumable() bool {
+	return v.Status == StatusCreated || v.Status == StatusUploading
 }

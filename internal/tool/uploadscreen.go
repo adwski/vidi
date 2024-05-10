@@ -3,6 +3,8 @@ package tool
 import (
 	"errors"
 	"github.com/charmbracelet/bubbles/filepicker"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -21,14 +23,17 @@ var (
 
 type (
 	sUpload struct {
-		filePicker   filepicker.Model
-		form         *huh.Form
-		progress     progress.Model
-		videoName    string
-		selectedFile string
-		err          error
-		uploading    bool
-		done         bool
+		filePicker       filepicker.Model
+		form             *huh.Form
+		progress         progress.Model
+		keys             keyMap
+		help             *help.Model
+		videoName        string
+		selectedFile     string
+		err              error
+		uploading        bool
+		done             bool
+		alreadyCompleted bool
 	}
 
 	uploadControl struct {
@@ -37,17 +42,59 @@ type (
 		path string
 	}
 
-	uploadCompleted struct{}
+	uploadCompleted struct {
+		wasCompletedBefore bool
+	}
 
 	uploadProgress struct {
-		completed uint64
-		total     uint64
+		completed        uint64
+		total            uint64
+		alreadyCompleted bool
+	}
+
+	uploadInfo struct {
+		name     string
+		filePath string
 	}
 )
 
-func newUploadScreen() *sUpload {
+func newUploadScreen(resuming bool) *sUpload {
+	km := keyMap{
+		Up: key.NewBinding(
+			key.WithKeys("up"),
+			key.WithHelp("↑", "move up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down"),
+			key.WithHelp("↓", "move down"),
+		),
+		Back: key.NewBinding(
+			key.WithKeys("backspace"),
+			key.WithHelp("backspace", "go back"),
+		),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "choose file"),
+		),
+		Return: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "return to main menu"),
+		),
+	}
+	km.kList = []key.Binding{km.Up, km.Down, km.Enter, km.Back, km.Return}
+
 	u := &sUpload{
-		progress: progress.New(progress.WithDefaultGradient()),
+		keys:      km,
+		uploading: resuming,
+		progress:  progress.New(progress.WithDefaultGradient()),
+		help: &help.Model{
+			Width:          0,
+			ShowAll:        false,
+			ShortSeparator: " • ",
+			FullSeparator:  " • ",
+			Ellipsis:       " * ",
+			Styles:         defaultHuhTheme.Help,
+		},
 	}
 	u.form = huh.NewForm(
 		huh.NewGroup(
@@ -123,8 +170,12 @@ func (s *sUpload) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 		// error occurred, set finishing flag
 		s.err = m
 		s.done = true
+	case uploadInfo:
+		s.selectedFile = m.filePath
+		s.videoName = m.name
 	case uploadCompleted:
 		// all ok, set finishing flag
+		s.alreadyCompleted = m.wasCompletedBefore
 		s.done = true
 		cmd := s.progress.SetPercent(1.0) // just in case
 		return cmd, nil
@@ -142,21 +193,20 @@ func (s *sUpload) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 }
 
 func (s *sUpload) view() string {
-	var content string
 	switch {
 	case s.uploading:
-		content = s.renderUploadProgress()
+		return containerWithBorder.Render(s.renderUploadProgress())
 	case len(s.selectedFile) == 0:
-		content = s.renderFilePicker()
+		return containerWithBorder.Render(s.renderFilePicker()) + "\n\n" + s.help.View(s.keys)
 	default:
-		content = s.renderForm()
+		return containerWithBorder.Render(s.renderForm())
 	}
-	return containerWithBorder.Width(100).Render(content)
 }
 
 func (s *sUpload) renderUploadProgress() string {
 	var sb strings.Builder
-	sb.WriteString("Uploading file: \n\n")
+	sb.WriteString(defaultHuhTheme.Focused.Title.Render("Uploading file"))
+	sb.WriteString("\n\n")
 	sb.WriteString("Name: ")
 	sb.WriteString(s.videoName)
 	sb.WriteString("\n\n")
@@ -167,6 +217,8 @@ func (s *sUpload) renderUploadProgress() string {
 		sb.WriteString("Upload error: ")
 		sb.WriteString(s.err.Error())
 		sb.WriteString("\nPress any key to continue...\n\n")
+	} else if s.alreadyCompleted {
+		sb.WriteString("Upload was completed before! Press any key to continue...\n\n")
 	} else if s.done {
 		sb.WriteString("Upload completed successfully! Press any key to continue...\n\n")
 	}
@@ -185,5 +237,5 @@ func (s *sUpload) renderFilePicker() string {
 	}
 	sb.WriteString("\n\n")
 
-	return sb.String() + s.filePicker.View()
+	return sb.String() + s.filePicker.View() + "\n\n"
 }

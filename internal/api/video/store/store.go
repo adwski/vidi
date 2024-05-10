@@ -120,7 +120,7 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 	}
 
 	query = `select num, status, size, checksum from upload_parts where video_id = $1`
-	rows, err := s.Pool().Query(ctx, query, id, userID)
+	rows, err := s.Pool().Query(ctx, query, id)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, handleDBErr(err)
@@ -136,6 +136,11 @@ func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error
 		}
 		return &part, nil
 	})
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, handleDBErr(err)
+		}
+	}
 	return vi, nil
 }
 

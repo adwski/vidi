@@ -11,6 +11,7 @@ const (
 	mainMenuOptionUpload
 	mainMenuOptionQuotas
 	mainMenuOptionSwitchUser
+	mainMenuOptionResumeUpload
 )
 
 type (
@@ -34,24 +35,30 @@ func (mmc mainMenuControl) String() string {
 		return "upload"
 	case mainMenuOptionQuotas:
 		return "quota"
+	case mainMenuOptionResumeUpload:
+		return "resume"
 	default:
 		return "unknown"
 	}
 }
 
-func newMainMenuScreen(user string) *sMainMenu {
+func newMainMenuScreen(user string, resumableUpload bool) *sMainMenu {
+	var opts []huh.Option[int]
+	opts = append(opts,
+		huh.NewOption("Videos", mainMenuOptionVideos),
+		huh.NewOption("Upload", mainMenuOptionUpload),
+		huh.NewOption("Quotas", mainMenuOptionQuotas),
+		huh.NewOption("Switch User", mainMenuOptionSwitchUser))
+	if resumableUpload {
+		opts = append(opts, huh.NewOption("Resume Current Upload", mainMenuOptionResumeUpload))
+	}
 	smm := &sMainMenu{}
 	f := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().Title(fmt.Sprintf("Logged as %s", user)),
 			huh.NewSelect[int]().
 				Title("Choose what to do").
-				Options(
-					huh.NewOption("Videos", mainMenuOptionVideos),
-					huh.NewOption("Upload", mainMenuOptionUpload),
-					huh.NewOption("Quotas", mainMenuOptionQuotas),
-					huh.NewOption("Switch User", mainMenuOptionSwitchUser),
-				).Value(&smm.option),
+				Options(opts...).Value(&smm.option),
 		),
 	).WithTheme(defaultHuhTheme)
 	smm.form = f

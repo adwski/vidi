@@ -40,6 +40,8 @@ type (
 
 		// flag indicating that user selected to enter credentials
 		enterCreds bool
+		// flag indicating that user selected to resume upload
+		resumingUpload bool
 		// quit screen flag
 		quitting bool
 
@@ -173,25 +175,34 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			t.state.CurrentUser = dta.option
 		}
 	case reLogControl:
-		t.err = t.processLoginExistingUser(t.state.getCurrentUserUnsafe().Name, dta.password)
+		t.err = t.processLoginExistingUser(t.state.activeUserUnsafe().Name, dta.password)
 	case mainMenuControl:
 		switch dta.option {
 		case mainMenuOptionSwitchUser:
 			t.state.CurrentUser = -1
 		case mainMenuOptionQuotas:
-			t.state.getCurrentUserUnsafe().QuotaUsage, t.err = t.getQuotas()
+			t.state.activeUserUnsafe().QuotaUsage, t.err = t.getQuotas()
 			if t.err == nil {
 				t.mainFlowScreen = mainFlowScreenQuotas
 			}
 		case mainMenuOptionVideos:
-			t.state.getCurrentUserUnsafe().Videos, t.err = t.getVideos()
+			t.state.activeUserUnsafe().Videos, t.err = t.getVideos()
 			t.mainFlowScreen = mainFlowScreenVideos
 		case mainFlowScreenUpload:
 			t.mainFlowScreen = mainFlowScreenUpload
+		case mainMenuOptionResumeUpload:
+			t.resumingUpload = true
+			t.mainFlowScreen = mainFlowScreenUpload
+			// Spawn resume upload goroutine, it will produce world events.
+			go t.resumeUploadFileNotify(t.state.activeUserUnsafe().CurrentUpload)
+
 		default:
 		}
 	case videosControl:
 		if dta.vid == "" {
+			t.mainFlowScreen = mainFlowScreenMainMenu
+		} else if dta.delete {
+			t.err = t.deleteVideo(dta.vid)
 			t.mainFlowScreen = mainFlowScreenMainMenu
 		} else {
 			// TODO: switch to watch video screen
@@ -207,6 +218,9 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			go t.uploadFileNotify(dta.name, dta.path)
 			// We're not switching screens here.
 			cycle = false
+		case uploadControlMsgDone:
+			t.mainFlowScreen = mainFlowScreenMainMenu
+			t.state.activeUserUnsafe().CurrentUpload = nil
 		}
 	}
 	if cycle {
@@ -259,14 +273,15 @@ func (t *Tool) cycleViews() {
 			if t.enterCreds {
 				// user previously chose to enter credentials,
 				// proceed to reLog screen with selected user
-				t.screen = newReLogScreen(t.state.getCurrentUserUnsafe().Name)
+				t.screen = newReLogScreen(t.state.activeUserUnsafe().Name)
 			} else {
 				// display user selection options
 				t.screen = newUserSelect(t.state.Users, t.state.CurrentUser)
 			}
 		}
 	}
-	t.enterCreds = false // reset creds flag
+	t.enterCreds = false     // reset creds flag
+	t.resumingUpload = false // reset resume flag
 	t.logger.Debug("cycling screens", zap.Any("screen", t.screen.name()))
 }
 
@@ -274,16 +289,17 @@ func (t *Tool) mainFlow() {
 	switch t.mainFlowScreen {
 	case mainMenuOptionQuotas:
 		// quota usage screen
-		t.screen = newQuotasScreen(t.state.getCurrentUserUnsafe().QuotaUsage)
+		t.screen = newQuotasScreen(t.state.activeUserUnsafe().QuotaUsage)
 	case mainFlowScreenVideos:
 		// videos screen
-		t.screen = newVideosScreen(t.state.getCurrentUserUnsafe().Videos)
+		t.screen = newVideosScreen(t.state.activeUserUnsafe().Videos)
 	case mainFlowScreenUpload:
 		// upload screen
-		t.screen = newUploadScreen()
+		t.screen = newUploadScreen(t.resumingUpload)
 	default: // mainFlowScreenMainMenu
 		// main menu
-		t.screen = newMainMenuScreen(t.state.getCurrentUserUnsafe().Name)
+		u := t.state.activeUserUnsafe()
+		t.screen = newMainMenuScreen(u.Name, u.CurrentUpload != nil)
 	}
 }
 

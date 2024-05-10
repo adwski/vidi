@@ -45,6 +45,11 @@ func (svc *Service) UpdateVideoStatusAndMeta(ctx context.Context, vid string, st
 	}); err != nil {
 		return errors.Join(model.ErrStorage, err)
 	}
+	if status == model.StatusReady {
+		if err := svc.s.DeleteUploadedParts(ctx, vid); err != nil {
+			return errors.Join(model.ErrStorage, err)
+		}
+	}
 	return nil
 }
 

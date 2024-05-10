@@ -34,7 +34,7 @@ type UsersideapiClient interface {
 	CreateVideo(ctx context.Context, in *CreateVideoRequest, opts ...grpc.CallOption) (*VideoResponse, error)
 	GetVideo(ctx context.Context, in *VideoRequest, opts ...grpc.CallOption) (*VideoResponse, error)
 	GetVideos(ctx context.Context, in *GetVideosRequest, opts ...grpc.CallOption) (*VideosResponse, error)
-	DeleteVideo(ctx context.Context, in *VideoRequest, opts ...grpc.CallOption) (*DeleteVideoResponse, error)
+	DeleteVideo(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteVideoResponse, error)
 }
 
 type usersideapiClient struct {
@@ -81,7 +81,7 @@ func (c *usersideapiClient) GetVideos(ctx context.Context, in *GetVideosRequest,
 	return out, nil
 }
 
-func (c *usersideapiClient) DeleteVideo(ctx context.Context, in *VideoRequest, opts ...grpc.CallOption) (*DeleteVideoResponse, error) {
+func (c *usersideapiClient) DeleteVideo(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteVideoResponse, error) {
 	out := new(DeleteVideoResponse)
 	err := c.cc.Invoke(ctx, Usersideapi_DeleteVideo_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -98,7 +98,7 @@ type UsersideapiServer interface {
 	CreateVideo(context.Context, *CreateVideoRequest) (*VideoResponse, error)
 	GetVideo(context.Context, *VideoRequest) (*VideoResponse, error)
 	GetVideos(context.Context, *GetVideosRequest) (*VideosResponse, error)
-	DeleteVideo(context.Context, *VideoRequest) (*DeleteVideoResponse, error)
+	DeleteVideo(context.Context, *DeleteRequest) (*DeleteVideoResponse, error)
 	mustEmbedUnimplementedUsersideapiServer()
 }
 
@@ -118,7 +118,7 @@ func (UnimplementedUsersideapiServer) GetVideo(context.Context, *VideoRequest) (
 func (UnimplementedUsersideapiServer) GetVideos(context.Context, *GetVideosRequest) (*VideosResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVideos not implemented")
 }
-func (UnimplementedUsersideapiServer) DeleteVideo(context.Context, *VideoRequest) (*DeleteVideoResponse, error) {
+func (UnimplementedUsersideapiServer) DeleteVideo(context.Context, *DeleteRequest) (*DeleteVideoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteVideo not implemented")
 }
 func (UnimplementedUsersideapiServer) mustEmbedUnimplementedUsersideapiServer() {}
@@ -207,7 +207,7 @@ func _Usersideapi_GetVideos_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Usersideapi_DeleteVideo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VideoRequest)
+	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func _Usersideapi_DeleteVideo_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: Usersideapi_DeleteVideo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UsersideapiServer).DeleteVideo(ctx, req.(*VideoRequest))
+		return srv.(UsersideapiServer).DeleteVideo(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

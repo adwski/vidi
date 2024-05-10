@@ -58,6 +58,110 @@ func (t *Tool) getQuotas() ([]QuotaParam, error) {
 	}, nil
 }
 
+func (t *Tool) deleteVideo(vid string) error {
+	ctx := t.getUserMDCtx()
+	_, err := t.videoapi.DeleteVideo(ctx, &pb.DeleteRequest{Id: vid})
+	if err != nil {
+		return fmt.Errorf("unable to delete video: %w", err)
+	}
+	return nil
+}
+
+func (t *Tool) resumeUploadFileNotify(upload *Upload) {
+	partsToUpload, uploadURL, size, err := t.checkUploadPartsState(upload)
+	if err != nil {
+		t.fb <- err
+		return
+	}
+	t.fb <- uploadInfo{
+		name:     upload.Name,
+		filePath: upload.Filename,
+	}
+	if len(partsToUpload) == 0 {
+		// nothing to upload
+		// This case should not happen
+		t.fb <- uploadCompleted{wasCompletedBefore: true}
+		return
+	}
+
+	f, err := os.Open(upload.Filename)
+	if err != nil {
+		t.fb <- fmt.Errorf("unable to open file: %w", err)
+		return
+	}
+	defer func() { _ = f.Close() }()
+	stat, err := f.Stat()
+	if err != nil {
+		t.fb <- fmt.Errorf("unable to get file stats: %w", err)
+		return
+	}
+	if uint64(stat.Size()) != size {
+		t.fb <- fmt.Errorf("file have changed during upload: %d != %d", stat.Size(), size)
+		return
+	}
+
+	var offset = size - uint64(partSize*len(partsToUpload))
+	t.fb <- uploadProgress{completed: offset, total: size}
+
+	for n, part := range partsToUpload {
+		if _, err = f.Seek(int64(n)*int64(partSize), io.SeekStart); err != nil {
+			t.fb <- fmt.Errorf("unable to seek file part %d: %w", n, err)
+		}
+		resp, rErr := t.httpC.NewRequest().
+			SetBody(io.LimitReader(f, int64(part.Size))).
+			SetHeader("Content-Type", "application/x-vidi-mediapart").
+			Post(uploadURL + "/" + strconv.FormatUint(uint64(part.Num), 10))
+		if rErr != nil {
+			t.fb <- fmt.Errorf("unable to upload part %d: %w", n, rErr)
+			return
+		}
+		if resp.IsError() {
+			t.fb <- fmt.Errorf("server responded with error status: %s", resp.Status())
+			return
+		}
+		offset += part.Size
+		t.fb <- uploadProgress{completed: offset, total: size}
+	}
+	t.fb <- uploadCompleted{}
+}
+
+func (t *Tool) checkUploadPartsState(upload *Upload) (map[uint32]*pb.VideoPart, string, uint64, error) {
+	size := uint64(0)
+	ctx := t.getUserMDCtx()
+	resp, err := t.videoapi.GetVideo(ctx, &pb.VideoRequest{
+		Id:           upload.ID,
+		ResumeUpload: true,
+	})
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("unable to get video info: %w", err)
+	}
+	if len(resp.UploadParts) == 0 && model.Status(resp.Status) == model.StatusCreated {
+		return nil, "", 0, errors.New("video does not have upload parts")
+	}
+	var (
+		partsToUpload    = make(map[uint32]*pb.VideoPart)
+		partsHaveLocally = make(map[uint]Part)
+	)
+	for _, p := range upload.Parts {
+		partsHaveLocally[p.Num] = p
+		size += uint64(p.Size)
+	}
+	for _, p := range resp.UploadParts {
+		if p.Status == model.PartStatusOK {
+			continue
+		}
+		pl, ok := partsHaveLocally[uint(p.Num)]
+		if !ok {
+			return nil, "", 0, fmt.Errorf("part is missing locally: %d", p.Num)
+		}
+		if pl.Checksum != p.Checksum {
+			return nil, "", 0, fmt.Errorf("part checksum doesn't match, have: %s, remote: %s", pl.Checksum, p.Checksum)
+		}
+		partsToUpload[p.Num] = p
+	}
+	return partsToUpload, resp.UploadUrl, size, nil
+}
+
 func (t *Tool) uploadFileNotify(name, filePath string) {
 	size, err := t.prepareUpload(filePath)
 	if err != nil {
@@ -66,7 +170,7 @@ func (t *Tool) uploadFileNotify(name, filePath string) {
 	}
 
 	// get ref to current upload
-	upload := t.state.getCurrentUserUnsafe().CurrentUpload
+	upload := t.state.activeUserUnsafe().CurrentUpload
 
 	// create video in videoapi
 	cv, err := t.createVideo(name, size, upload.Parts)
@@ -173,6 +277,7 @@ func (t *Tool) createVideo(name string, size uint64, uploadParts []Part) (*pb.Vi
 		Name:  name,
 		Parts: parts,
 	})
+	t.logger.Debug("parts", zap.Any("parts", parts), zap.Any("cvResp", cvResp))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create video: %w", err)
 	}
@@ -208,7 +313,7 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 		})
 	}
 	t.logger.Debug("prepared upload info", zap.Any("info", uploadInfo))
-	t.state.getCurrentUserUnsafe().CurrentUpload = uploadInfo
+	t.state.activeUserUnsafe().CurrentUpload = uploadInfo
 	return t.state.persist()
 }
 
@@ -217,6 +322,6 @@ func (t *Tool) getTmpDir() string {
 }
 
 func (t *Tool) getUserMDCtx() context.Context {
-	md := metadata.Pairs("authorization", "bearer "+t.state.getCurrentUserUnsafe().Token)
+	md := metadata.Pairs("authorization", "bearer "+t.state.activeUserUnsafe().Token)
 	return metadata.NewOutgoingContext(context.TODO(), md)
 }

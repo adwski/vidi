@@ -9,7 +9,7 @@ service usersideapi {
   rpc CreateVideo(CreateVideoRequest) returns (VideoResponse);
   rpc GetVideo(VideoRequest) returns (VideoResponse);
   rpc GetVideos(GetVideosRequest) returns (VideosResponse);
-  rpc DeleteVideo(VideoRequest) returns (DeleteVideoResponse);
+  rpc DeleteVideo(DeleteRequest) returns (DeleteVideoResponse);
 }
 
 message GetQuotaRequest {}
@@ -30,26 +30,33 @@ message CreateVideoRequest {
 message VideoPart {
   uint32 num = 1;
   uint64 size = 2;
-  string checksum = 3;
+  int32 status = 3;
+  string checksum = 4;
 }
 
 message VideoRequest {
   string id = 1;
+  bool resumeUpload = 2;
 }
 
 message VideoResponse {
- string id = 1;
- int32 status = 2;
- string name = 3;
- uint64 size = 4;
- int64 created_at = 5;
- string upload_url = 6;
+  string id = 1;
+  int32 status = 2;
+  string name = 3;
+  uint64 size = 4;
+  int64 created_at = 5;
+  string upload_url = 6;
+  repeated VideoPart upload_parts = 7;
 }
 
 message GetVideosRequest{}
 
 message VideosResponse {
   repeated VideoResponse videos = 1;
+}
+
+message DeleteRequest {
+  string id = 1;
 }
 
 message DeleteVideoResponse{}

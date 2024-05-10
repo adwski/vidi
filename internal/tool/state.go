@@ -48,6 +48,7 @@ type (
 
 	Upload struct {
 		ID       string `json:"id"`
+		Name     string `json:"name"`
 		Filename string `json:"filename"`
 		Parts    []Part `json:"parts"`
 	}
@@ -72,7 +73,7 @@ func newState(dir string) *State {
 	}
 }
 
-func (s *State) getCurrentUserUnsafe() *User {
+func (s *State) activeUserUnsafe() *User {
 	if s.noUser() {
 		return nil
 	}

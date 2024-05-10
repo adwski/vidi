@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"math/rand"
@@ -9,6 +10,25 @@ import (
 const (
 	greetMessageTxt = "Welcome to Vidi terminal tool"
 )
+
+type (
+	keyMap struct {
+		kList  []key.Binding
+		Up     key.Binding
+		Down   key.Binding
+		Del    key.Binding
+		Back   key.Binding
+		Enter  key.Binding
+		Return key.Binding
+	}
+)
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+func (k keyMap) ShortHelp() []key.Binding {
+	return k.kList
+}
 
 var (
 	defaultHuhTheme = huh.ThemeDracula()
@@ -20,11 +40,14 @@ var (
 			Bold(true).
 			Border(lipgloss.RoundedBorder())
 
+	confirmStyle = defaultHuhTheme.Focused.Description
+
 	containerWithBorder = lipgloss.NewStyle().
 				Align(lipgloss.Left).
 				Border(lipgloss.RoundedBorder()).
 				Margin(1, 1, 0, 0).
-				Padding(0, 1, 0, 1)
+				Padding(0, 1, 0, 1).
+				Width(100)
 
 	greetStyle = lipgloss.NewStyle().
 			Align(lipgloss.Left).
