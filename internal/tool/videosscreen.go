@@ -17,6 +17,8 @@ type (
 		keys       keyMap
 		help       *help.Model
 		videos     [][2]string
+		err        error
+		watchURL   string
 		videoToDel int
 		delConfirm bool
 	}
@@ -24,6 +26,11 @@ type (
 	videosControl struct {
 		vid    string
 		delete bool
+		watch  bool
+	}
+
+	watchInfo struct {
+		url string
 	}
 )
 
@@ -80,12 +87,16 @@ func newVideosScreen(videos []Video) *sVideos {
 			key.WithKeys("d", "D"),
 			key.WithHelp("D/d", "delete video"),
 		),
+		Watch: key.NewBinding(
+			key.WithKeys("w", "W"),
+			key.WithHelp("W/w", "get watch url"),
+		),
 		Return: key.NewBinding(
 			key.WithKeys("←", "backspace", "esc"),
 			key.WithHelp("←/esc/backspace", "go back"),
 		),
 	}
-	km.kList = []key.Binding{km.Up, km.Down, km.Del, km.Return}
+	km.kList = []key.Binding{km.Up, km.Down, km.Del, km.Watch, km.Return}
 
 	return &sVideos{
 		keys:       km,
@@ -113,7 +124,12 @@ func (s *sVideos) name() string {
 
 func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 	var cmd tea.Cmd
-	if m, ok := msg.(tea.KeyMsg); ok {
+	switch m := msg.(type) {
+	case watchInfo:
+		s.watchURL = m.url
+	case error:
+		s.err = m
+	case tea.KeyMsg:
 		if s.videoToDel > -1 {
 			switch m.String() {
 			case "Y", "y":
@@ -131,9 +147,13 @@ func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 				s.table.Focus()
 			}
 		case "d":
-			vNum, _ := strconv.Atoi(s.table.SelectedRow()[0]) // this is ugly, but it'll be always a number
+			// this is ugly, but I didn't find nicer way. Also, it'll always be a number.
+			vNum, _ := strconv.Atoi(s.table.SelectedRow()[0])
 			s.videoToDel = vNum - 1
 			return nil, nil // prevent table updates
+		case "w":
+			vNum, _ := strconv.Atoi(s.table.SelectedRow()[0])
+			return nil, &outerControl{data: videosControl{vid: s.videos[vNum-1][0], watch: true}}
 		case "backspace", "esc", "left":
 			return nil, &outerControl{data: videosControl{vid: ""}}
 		case "enter":
@@ -145,10 +165,14 @@ func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 }
 
 func (s *sVideos) view() string {
-	var confirm = "\n"
+	var footer = "\n"
 	if s.videoToDel > -1 {
-		confirm = confirmStyle.Render(fmt.Sprintf(">> Delete video %d: '%s'? Press [Y]es or any key to cancel\n",
+		footer = confirmStyle.Render(fmt.Sprintf(">> Delete video %d: '%s'? Press [Y]es or any key to cancel\n",
 			s.videoToDel+1, s.videos[s.videoToDel][1]))
+	} else if len(s.watchURL) > 0 {
+		footer = confirmStyle.Render(fmt.Sprintf(">> Watch URL: %s\n", s.watchURL))
+	} else if s.err != nil {
+		footer = errStyleFooter.Render(fmt.Sprintf(">> Error: %s\n", s.err.Error()))
 	}
-	return containerWithBorder.Render(s.table.View()) + "\n" + confirm + "\n\n" + s.help.View(s.keys)
+	return containerWithBorder.Render(s.table.View()) + "\n" + footer + "\n\n" + s.help.View(s.keys)
 }

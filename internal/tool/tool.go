@@ -204,8 +204,8 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if dta.delete {
 			t.err = t.deleteVideo(dta.vid)
 			t.mainFlowScreen = mainFlowScreenMainMenu
-		} else {
-			// TODO: switch to watch video screen
+		} else if dta.watch {
+			go t.getWatchURL(dta.vid)
 		}
 	case quotasControl:
 		t.mainFlowScreen = mainFlowScreenMainMenu

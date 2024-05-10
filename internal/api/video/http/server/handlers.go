@@ -56,10 +56,16 @@ func (srv *Server) watchVideo(c echo.Context) error {
 	if !ok {
 		return err
 	}
-	bMPD, err := srv.videoSvc.WatchVideo(c.Request().Context(), usr, c.Param("id"))
+
+	generateURL := c.QueryParam("mode") == "url"
+	resp, err := srv.videoSvc.WatchVideo(c.Request().Context(), usr, c.Param("id"), generateURL)
 	switch {
 	case err == nil:
-		return c.XMLBlob(http.StatusOK, bMPD)
+		if generateURL {
+			return c.JSON(http.StatusOK, httpmodel.WatchResponse{WatchURL: string(resp)})
+		} else {
+			return c.XMLBlob(http.StatusOK, resp)
+		}
 	case errors.Is(err, model.ErrNotFound):
 		return c.JSON(http.StatusNotFound, &common.Response{
 			Error: err.Error(),

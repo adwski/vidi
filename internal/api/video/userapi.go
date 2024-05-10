@@ -64,7 +64,7 @@ func (svc *Service) GetVideos(ctx context.Context, usr *user.User) ([]*model.Vid
 	return videos, nil
 }
 
-func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) ([]byte, error) {
+func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string, genURL bool) ([]byte, error) {
 	video, err := svc.s.Get(ctx, vid, usr.ID)
 	if err != nil {
 		return nil, errors.Join(model.ErrStorage, err)
@@ -87,6 +87,9 @@ func (svc *Service) WatchVideo(ctx context.Context, usr *user.User, vid string) 
 	}
 	if err = svc.watchSessions.Set(ctx, sess); err != nil {
 		return nil, errors.Join(model.ErrSessionStorage, err)
+	}
+	if genURL {
+		return []byte(svc.getWatchURL(sess.ID)), nil
 	}
 	bMPD, err := video.PlaybackMeta.StaticMPD(svc.getWatchBaseURL(sess.ID))
 	if err != nil {

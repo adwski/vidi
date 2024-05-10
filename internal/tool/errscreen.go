@@ -36,5 +36,5 @@ func (s *sErr) view() string {
 	if s.err == nil {
 		s.err = errors.New("<no error>")
 	}
-	return errStyle.Render(s.err.Error() + "\n\npress any key to continue...")
+	return errStyleBorder.Render(s.err.Error() + "\n\npress any key to continue...")
 }

@@ -1,8 +1,10 @@
 package processor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"github.com/adwski/vidi/internal/mp4"
 	"github.com/adwski/vidi/internal/mp4/meta"
 	"io"
 
@@ -40,6 +42,16 @@ func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker,
 	if err != nil {
 		return nil, fmt.Errorf("cannot generate playback meta: %w", err)
 	}
+
+	// place static MPD to s3 as well so generated watch URLs would still work until we have proper web UI
+	bMPD, err := playbackMeta.StaticMPD("")
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate static mpd: %w", err)
+	}
+	if err = p.storeBytes(ctx, fmt.Sprintf("%s/%s", location, mp4.MPDSuffix), bMPD); err != nil {
+		return nil, err
+	}
+
 	p.logger.Info("mp4 file processed successfully")
 	return playbackMeta, nil
 }
@@ -73,6 +85,13 @@ func (p *Processor) storeBox(ctx context.Context, name string, box mp4ff.BoxStru
 	}
 	if errR = r.Close(); errR != nil {
 		return fmt.Errorf("error closing store reader: %w", errR)
+	}
+	return nil
+}
+
+func (p *Processor) storeBytes(ctx context.Context, name string, artifact []byte) error {
+	if err := p.st.Put(ctx, name, bytes.NewReader(artifact), int64(len(artifact))); err != nil {
+		return fmt.Errorf("cannot write byte artifact: %w", err)
 	}
 	return nil
 }

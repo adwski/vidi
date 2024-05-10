@@ -15,9 +15,11 @@ func (mt *Meta) StaticMPD(baseURL string) ([]byte, error) {
 	// Create StaticMPD
 	m := mpd.NewMPD(mpd.STATIC_TYPE)
 	m.Profiles = mpd.PROFILE_ONDEMAND
-	m.BaseURL = append(m.BaseURL, &mpd.BaseURLType{
-		Value: mpd.AnyURI(baseURL),
-	})
+	if len(baseURL) > 0 {
+		m.BaseURL = append(m.BaseURL, &mpd.BaseURLType{
+			Value: mpd.AnyURI(baseURL),
+		})
+	}
 	m.MediaPresentationDuration = mpd.Ptr(mpd.Duration(mt.Duration))
 
 	// Create Period

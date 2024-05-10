@@ -24,6 +24,7 @@ const (
 	Usersideapi_GetVideo_FullMethodName    = "/videoapi.usersideapi/GetVideo"
 	Usersideapi_GetVideos_FullMethodName   = "/videoapi.usersideapi/GetVideos"
 	Usersideapi_DeleteVideo_FullMethodName = "/videoapi.usersideapi/DeleteVideo"
+	Usersideapi_WatchVideo_FullMethodName  = "/videoapi.usersideapi/WatchVideo"
 )
 
 // UsersideapiClient is the client API for Usersideapi service.
@@ -35,6 +36,7 @@ type UsersideapiClient interface {
 	GetVideo(ctx context.Context, in *VideoRequest, opts ...grpc.CallOption) (*VideoResponse, error)
 	GetVideos(ctx context.Context, in *GetVideosRequest, opts ...grpc.CallOption) (*VideosResponse, error)
 	DeleteVideo(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteVideoResponse, error)
+	WatchVideo(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (*WatchVideoResponse, error)
 }
 
 type usersideapiClient struct {
@@ -90,6 +92,15 @@ func (c *usersideapiClient) DeleteVideo(ctx context.Context, in *DeleteRequest, 
 	return out, nil
 }
 
+func (c *usersideapiClient) WatchVideo(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (*WatchVideoResponse, error) {
+	out := new(WatchVideoResponse)
+	err := c.cc.Invoke(ctx, Usersideapi_WatchVideo_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UsersideapiServer is the server API for Usersideapi service.
 // All implementations must embed UnimplementedUsersideapiServer
 // for forward compatibility
@@ -99,6 +110,7 @@ type UsersideapiServer interface {
 	GetVideo(context.Context, *VideoRequest) (*VideoResponse, error)
 	GetVideos(context.Context, *GetVideosRequest) (*VideosResponse, error)
 	DeleteVideo(context.Context, *DeleteRequest) (*DeleteVideoResponse, error)
+	WatchVideo(context.Context, *WatchRequest) (*WatchVideoResponse, error)
 	mustEmbedUnimplementedUsersideapiServer()
 }
 
@@ -120,6 +132,9 @@ func (UnimplementedUsersideapiServer) GetVideos(context.Context, *GetVideosReque
 }
 func (UnimplementedUsersideapiServer) DeleteVideo(context.Context, *DeleteRequest) (*DeleteVideoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteVideo not implemented")
+}
+func (UnimplementedUsersideapiServer) WatchVideo(context.Context, *WatchRequest) (*WatchVideoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WatchVideo not implemented")
 }
 func (UnimplementedUsersideapiServer) mustEmbedUnimplementedUsersideapiServer() {}
 
@@ -224,6 +239,24 @@ func _Usersideapi_DeleteVideo_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Usersideapi_WatchVideo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsersideapiServer).WatchVideo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Usersideapi_WatchVideo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsersideapiServer).WatchVideo(ctx, req.(*WatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Usersideapi_ServiceDesc is the grpc.ServiceDesc for Usersideapi service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -250,6 +283,10 @@ var Usersideapi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteVideo",
 			Handler:    _Usersideapi_DeleteVideo_Handler,
+		},
+		{
+			MethodName: "WatchVideo",
+			Handler:    _Usersideapi_WatchVideo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

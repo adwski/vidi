@@ -21,6 +21,17 @@ const (
 	partSize = 10 * 1024 * 1024
 )
 
+func (t *Tool) getWatchURL(vid string) {
+	ctx := t.getUserMDCtx()
+	resp, err := t.videoapi.WatchVideo(ctx, &pb.WatchRequest{Id: vid})
+	if err != nil {
+		t.logger.Error("watch video error", zap.Error(err), zap.String("vid", vid))
+		t.fb <- fmt.Errorf("unable to get watch url for video: %w", err)
+		return
+	}
+	t.fb <- watchInfo{url: resp.Url}
+}
+
 func (t *Tool) getVideos() ([]Video, error) {
 	ctx := t.getUserMDCtx()
 	resp, err := t.videoapi.GetVideos(ctx, &pb.GetVideosRequest{})

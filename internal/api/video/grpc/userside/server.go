@@ -40,6 +40,26 @@ func NewServer(cfg *g.Config, videoSvc *video.Service) (*Server, error) {
 	return srv, nil
 }
 
+func (srv *Server) WatchVideo(ctx context.Context, req *pb.WatchRequest) (*pb.WatchVideoResponse, error) {
+	usr, err := getUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	url, err := srv.videoSvc.WatchVideo(ctx, usr, req.Id, true)
+	if err == nil {
+		return &pb.WatchVideoResponse{Url: string(url)}, nil
+	}
+	switch {
+	case errors.Is(err, model.ErrNotFound):
+		return nil, status.Error(codes.NotFound, "video is not found")
+	case errors.Is(err, model.ErrNotReady), errors.Is(err, model.ErrState):
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	default:
+		srv.logger.Error("WatchVideo failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "cannot get video")
+	}
+}
+
 func (srv *Server) GetQuota(ctx context.Context, _ *pb.GetQuotaRequest) (*pb.QuotaResponse, error) {
 	usr, err := getUser(ctx)
 	if err != nil {

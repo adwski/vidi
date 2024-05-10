@@ -17,6 +17,7 @@ type (
 		Up     key.Binding
 		Down   key.Binding
 		Del    key.Binding
+		Watch  key.Binding
 		Back   key.Binding
 		Enter  key.Binding
 		Return key.Binding
@@ -35,7 +36,8 @@ var (
 
 	quitTextStyle = lipgloss.NewStyle().Margin(1, 0, 2, 4).Bold(true).Faint(true)
 
-	errStyle = defaultHuhTheme.Focused.ErrorIndicator.
+	errStyleFooter = defaultHuhTheme.Focused.ErrorIndicator
+	errStyleBorder = defaultHuhTheme.Focused.ErrorIndicator.Copy().
 			Padding(0, 0, 1, 4).
 			Bold(true).
 			Border(lipgloss.RoundedBorder())

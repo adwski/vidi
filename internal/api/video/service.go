@@ -4,6 +4,7 @@ package video
 import (
 	"context"
 	"fmt"
+	"github.com/adwski/vidi/internal/mp4"
 	"strings"
 
 	"github.com/adwski/vidi/internal/api/video/model"
@@ -82,4 +83,8 @@ func (svc *Service) getUploadURL(sessID string) string {
 
 func (svc *Service) getWatchBaseURL(sessID string) string {
 	return fmt.Sprintf("%s/%s/", svc.watchURLPrefix, sessID) // trailing / is important!
+}
+
+func (svc *Service) getWatchURL(sessID string) string {
+	return fmt.Sprintf("%s/%s/%s", svc.watchURLPrefix, sessID, mp4.MPDSuffix)
 }

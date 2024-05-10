@@ -2,6 +2,8 @@
 package tool
 
 import (
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -9,7 +11,9 @@ import (
 
 type (
 	sQuotas struct {
+		help  *help.Model
 		table table.Model
+		km    keyMap
 	}
 
 	quotasControl struct{}
@@ -50,7 +54,34 @@ func newQuotasScreen(quotas []QuotaParam) *sQuotas {
 		Bold(false)
 	t.SetStyles(s)
 
-	return &sQuotas{table: t}
+	km := keyMap{
+		Up: key.NewBinding(
+			key.WithKeys("up"),
+			key.WithHelp("↑", "move up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down"),
+			key.WithHelp("↓", "move down"),
+		),
+		Return: key.NewBinding(
+			key.WithKeys("←", "backspace", "esc"),
+			key.WithHelp("←/esc/backspace", "go back"),
+		),
+	}
+	km.kList = []key.Binding{km.Up, km.Down, km.Del, km.Watch, km.Return}
+
+	return &sQuotas{
+		table: t,
+		km:    km,
+		help: &help.Model{
+			Width:          0,
+			ShowAll:        false,
+			ShortSeparator: " • ",
+			FullSeparator:  " • ",
+			Ellipsis:       " * ",
+			Styles:         defaultHuhTheme.Help,
+		},
+	}
 }
 
 func (s *sQuotas) init() tea.Cmd {
@@ -80,5 +111,5 @@ func (s *sQuotas) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 }
 
 func (s *sQuotas) view() string {
-	return containerWithBorder.Render(s.table.View())
+	return containerWithBorder.Render(s.table.View()) + "\n\n" + s.help.View(s.km)
 }

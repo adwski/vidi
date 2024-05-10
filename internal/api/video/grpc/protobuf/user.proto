@@ -10,6 +10,7 @@ service usersideapi {
   rpc GetVideo(VideoRequest) returns (VideoResponse);
   rpc GetVideos(GetVideosRequest) returns (VideosResponse);
   rpc DeleteVideo(DeleteRequest) returns (DeleteVideoResponse);
+  rpc WatchVideo(WatchRequest) returns (WatchVideoResponse);
 }
 
 message GetQuotaRequest {}
@@ -60,3 +61,11 @@ message DeleteRequest {
 }
 
 message DeleteVideoResponse{}
+
+message WatchRequest {
+  string id = 1;
+}
+
+message WatchVideoResponse{
+  string url = 1;
+}
