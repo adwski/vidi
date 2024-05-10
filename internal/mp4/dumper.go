@@ -42,7 +42,10 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 	printW(w, "duration: %v\n", time.Duration(totalDuration/uint64(timescale))*time.Second)
 	printW(w, "\nsegmentation info:\n")
 
-	segmentPoints, errSP := segmentation.MakePoints(vTrack, timescale, segmentDuration)
+	updatedSegDuration, segmentPoints, errSP := segmentation.MakePoints(vTrack, timescale, segmentDuration)
+	if updatedSegDuration != 0 {
+		printW(w, "segment duration was updated: %v\n", updatedSegDuration)
+	}
 	printW(w, "segment points (%d) with %v duration (err: %v): %v\n", len(segmentPoints), segmentDuration, errSP, segmentPoints)
 	if errSP != nil {
 		return

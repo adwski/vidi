@@ -41,9 +41,10 @@ func GetFirstVideoTrackParams(m *mp4.File) (track *mp4.TrakBox, timescale uint32
 // MakePoints creates segmentation points to split progressive mp4 file
 // according to specified segment duration. It uses first video track
 // as reference track for time calculations.
-func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) ([]Point, error) {
+func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) (time.Duration, []Point, error) {
 	var (
-		segmentStep = uint32(uint64(segmentDuration.Milliseconds()) * uint64(timescale) / millisecondsInSecond)
+		updatedSegmentDuration time.Duration = 0
+		segmentStep                          = uint64(segmentDuration.Milliseconds()) * uint64(timescale) / millisecondsInSecond
 
 		// https://youtu.be/CLvR9FVYwWs?t=840 (timing organisation)
 		// https://youtu.be/CLvR9FVYwWs?t=922 (timelines)
@@ -52,37 +53,52 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 		ctts = track.Mdia.Minf.Stbl.Ctts // Time-to-sample box (composition)
 		stss = track.Mdia.Minf.Stbl.Stss // Sync sample table
 
-		nextSegmentStart uint32 // Next segment time mark
+		nextSegmentStart uint64 // Next segment time mark
 
 		// Allocate segmentation points array
+		// Note: This is actually binds us with how we can choose segment duration,
+		// since segment point can only be placed at sync sample.
 		segmentationPoints = make([]Point, 0, stss.EntryCount())
 	)
+
+	if stss.EntryCount() > 1 {
+		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[0])
+		sync2, _ := stts.GetDecodeTime(stss.SampleNumber[1])
+		if sync2-sync1 > segmentStep {
+			// configured segment step is no good and should be increased,
+			// otherwise player will not be able to seek to not yet loaded segments
+			// TODO: will sync2-sync1 diff will always be the same for each sequential sync sample pair?
+			// TODO: (and also for every file?)
+			segmentStep = sync2 - sync1
+			updatedSegmentDuration = time.Duration(segmentStep*millisecondsInSecond/uint64(timescale)) * time.Millisecond
+		}
+	}
 
 	for _, sampleNumber := range stss.SampleNumber {
 		// Get decode time of the sample
 		decodeTime, _ := stts.GetDecodeTime(sampleNumber)
 
 		// Determine presentation time
-		presentationTime := int64(decodeTime)
+		presentationTime := decodeTime
 		if ctts != nil {
 			// Correct by composition offset
-			presentationTime += int64(ctts.GetCompositionTimeOffset(sampleNumber))
+			presentationTime += uint64(ctts.GetCompositionTimeOffset(sampleNumber))
 		}
 
-		if presentationTime >= int64(nextSegmentStart) {
+		if presentationTime >= nextSegmentStart {
 			// Time mark for next segmentation point is reached
 			// Create it
 			segmentationPoints = append(segmentationPoints,
 				Point{
 					sampleNum:        sampleNumber,
 					decodeTime:       decodeTime,
-					presentationTime: uint64(presentationTime),
+					presentationTime: presentationTime,
 				})
 			// Update time mark
 			nextSegmentStart += segmentStep
 		}
 	}
-	return segmentationPoints, nil
+	return updatedSegmentDuration, segmentationPoints, nil
 }
 
 // Interval represents segment by its start and end samples (inclusive).

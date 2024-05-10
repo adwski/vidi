@@ -24,18 +24,19 @@ func (p *Processor) ProcessFileFromReader(ctx context.Context, rs io.ReadSeeker,
 	}
 	p.logger.Debug("mp4 decoded")
 
-	tracks, timescale, totalDuration, errS := segmenter.NewSegmenter(
+	s := segmenter.NewSegmenter(
 		p.logger,
 		rs,
 		p.segmentDuration,
 		func(ctx context.Context, name string, box mp4ff.BoxStructure, size uint64) error {
 			return p.storeBox(ctx, fmt.Sprintf("%s/%s", location, name), box, size)
-		}).SegmentMP4(ctx, mF)
+		})
+	tracks, timescale, totalDuration, errS := s.SegmentMP4(ctx, mF)
 	if errS != nil {
 		return nil, fmt.Errorf("cannot segment mp4 file: %w", errS)
 	}
 
-	playbackMeta, err := p.generatePlaybackMeta(tracks, timescale, totalDuration)
+	playbackMeta, err := p.generatePlaybackMeta(tracks, timescale, totalDuration, s.GetSegmentDuration())
 	if err != nil {
 		return nil, fmt.Errorf("cannot generate playback meta: %w", err)
 	}

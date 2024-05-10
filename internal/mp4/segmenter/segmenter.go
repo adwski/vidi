@@ -48,6 +48,8 @@ func NewSegmenter(logger *zap.Logger, mdatRS io.ReadSeeker, segDuration time.Dur
 	}
 }
 
+func (s *Segmenter) GetSegmentDuration() time.Duration { return s.segmentDuration }
+
 func (s *Segmenter) SegmentMP4(
 	ctx context.Context,
 	mF *mp4ff.File,
@@ -61,7 +63,11 @@ func (s *Segmenter) SegmentMP4(
 		zap.Uint32("timescale", timescale),
 		zap.Uint64("totalDuration", totalDuration))
 
-	segPoints, errS := segmentation.MakePoints(track, timescale, s.segmentDuration)
+	updSegDuration, segPoints, errS := segmentation.MakePoints(track, timescale, s.segmentDuration)
+	if updSegDuration > 0 {
+		s.logger.Debug("updating segment duration", zap.Duration("new", updSegDuration))
+		s.segmentDuration = updSegDuration
+	}
 	if errS != nil {
 		return nil, 0, 0, fmt.Errorf("cannot make segmentation points: %w", err)
 	}
