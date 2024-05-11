@@ -47,8 +47,8 @@ func TestServer_RunNoHandler(t *testing.T) {
 	go s.Run(ctx, wg, errc)
 
 	select {
-	case err := <-errc:
-		require.ErrorContains(t, err, "server handler is not set")
+	case err = <-errc:
+		require.ErrorContains(t, err, "handler is not set")
 	case <-time.After(time.Second):
 		assert.Fail(t, "no error was returned")
 	}

@@ -21,9 +21,8 @@ func TestService_getVideosDBError(t *testing.T) {
 		Logger: logger,
 		Store:  s,
 	})
-
-	s.EXPECT().GetAll(mock.Anything, "qweqweqwe").Return(nil, errors.New("err"))
 	u := usermodel.User{ID: "test"}
+	s.EXPECT().GetAll(mock.Anything, u.ID).Return(nil, errors.New("err"))
 
 	videos, err := svc.GetVideos(context.TODO(), &u)
 	require.ErrorIs(t, err, model.ErrStorage)

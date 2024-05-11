@@ -22,7 +22,7 @@ func Test_checkHeader(t *testing.T) {
 		{
 			name: "valid headers",
 			args: args{
-				cType: "video/mp4",
+				cType: "application/x-vidi-mediapart",
 				cLen:  100,
 			},
 			contentLength: 100,
@@ -30,7 +30,7 @@ func Test_checkHeader(t *testing.T) {
 		{
 			name: "wrong content-length",
 			args: args{
-				cType: "video/mp4",
+				cType: "application/x-vidi-mediapart",
 				cLen:  0,
 			},
 			err: "wrong or missing content length",
