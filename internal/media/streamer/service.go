@@ -21,6 +21,7 @@ const (
 
 	contentTypeSegment  = "video/iso.segment"
 	contentTypeVideoMP4 = "video/mp4"
+	contentTypeAudioMP4 = "audio/mp4"
 	contentTypeMPD      = "application/dash+xml"
 )
 
@@ -29,6 +30,9 @@ var (
 	objTypeSegment = []byte(".m4s")
 	objTypeMP4     = []byte(".mp4")
 	objTypeMPD     = []byte(".mpd")
+
+	trackTypeAudio = []byte("soun")
+	trackTypeVideo = []byte("vide")
 )
 
 // Service is a streaming service. It implements fasthttp handler that
@@ -172,7 +176,14 @@ func (svc *Service) getSessionIDAndSegmentPathFromURI(uri []byte) (string, []byt
 	case bytes.HasSuffix(path, objTypeSegment):
 		cType = contentTypeSegment
 	case bytes.HasSuffix(path, objTypeMP4): // for init segments
-		cType = contentTypeVideoMP4
+		switch {
+		case bytes.HasPrefix(path[1:], trackTypeAudio):
+			cType = contentTypeAudioMP4
+		case bytes.HasPrefix(path[1:], trackTypeVideo):
+			cType = contentTypeVideoMP4
+		default:
+			return "", nil, "", fmt.Errorf("cannot determine mp4 track type")
+		}
 	case bytes.HasSuffix(path, objTypeMPD):
 		// TODO MPD is also served as segment at the moment.
 		//  In the future it should be moved to video api.
