@@ -175,7 +175,7 @@ func (t *Tool) checkUploadPartsState(upload *Upload) (map[uint32]*pb.VideoPart, 
 }
 
 func (t *Tool) uploadFileNotify(name, filePath string) {
-	size, err := t.prepareUpload(filePath)
+	size, err := t.prepareUpload(filePath, name)
 	if err != nil {
 		t.fb <- err
 		return
@@ -235,7 +235,7 @@ func (t *Tool) uploadFileNotify(name, filePath string) {
 	t.fb <- uploadCompleted{}
 }
 
-func (t *Tool) prepareUpload(filePath string) (uint64, error) {
+func (t *Tool) prepareUpload(filePath, name string) (uint64, error) {
 	size, err := getFileSize(filePath)
 	if err != nil {
 		return 0, err
@@ -243,7 +243,7 @@ func (t *Tool) prepareUpload(filePath string) (uint64, error) {
 	if err = t.checkQuotas(size); err != nil {
 		return 0, err
 	}
-	return size, t.prepareParts(filePath, size)
+	return size, t.prepareParts(filePath, name, size)
 }
 
 func getFileSize(filePath string) (uint64, error) {
@@ -296,7 +296,7 @@ func (t *Tool) createVideo(name string, size uint64, uploadParts []Part) (*pb.Vi
 	return cvResp, nil
 }
 
-func (t *Tool) prepareParts(filePath string, size uint64) error {
+func (t *Tool) prepareParts(filePath, name string, size uint64) error {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("unable to open file: %w", err)
@@ -307,7 +307,8 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 	if size%partSize != 0 {
 		partCount++
 	}
-	uploadInfo := &Upload{
+	uInfo := &Upload{
+		Name:     name,
 		Filename: filePath,
 	}
 	for i := uint64(0); i < partCount; i++ {
@@ -318,14 +319,14 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 				return fmt.Errorf("unable to calculate sha256 sum: %w", errCp)
 			}
 		}
-		uploadInfo.Parts = append(uploadInfo.Parts, Part{
+		uInfo.Parts = append(uInfo.Parts, Part{
 			Num:      uint(i),
 			Size:     uint(n),
 			Checksum: base64.StdEncoding.EncodeToString(h.Sum(nil)),
 		})
 	}
-	t.logger.Debug("prepared upload info", zap.Any("info", uploadInfo))
-	t.state.activeUserUnsafe().CurrentUpload = uploadInfo
+	t.logger.Debug("prepared upload info", zap.Any("info", uInfo))
+	t.state.activeUserUnsafe().CurrentUpload = uInfo
 	return t.state.persist()
 }
 
