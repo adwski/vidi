@@ -4,7 +4,6 @@ package segmentation
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"io"
 	"time"
 
@@ -40,8 +39,8 @@ func GetFirstVideoTrackParams(m *mp4.File) (track *mp4.TrakBox, timescale uint32
 }
 
 // MakePoints creates segmentation points to split progressive mp4 file
-// according to specified segment duration. It uses first video track
-// as reference track for time calculations.
+// according to specified segment duration. It should be provided with
+// first video track as reference track for time calculations.
 func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) (time.Duration, []Point, error) {
 	var (
 		updatedSegmentDuration time.Duration = 0
@@ -61,21 +60,27 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 		// since segment point can only be placed at sync sample.
 		segmentationPoints = make([]Point, 0, stss.EntryCount())
 	)
-	spew.Dump(stss.EntryCount())
 
-	if stss.EntryCount() > 1 {
-		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[0])
-		sync2, _ := stts.GetDecodeTime(stss.SampleNumber[1])
-		if sync2-sync1 > segmentStep {
-			// configured segment step is no good and should be increased,
-			// otherwise player will not be able to seek to not yet loaded segments
-			// TODO: will sync2-sync1 diff will always be the same for each sequential sync sample pair?
-			// TODO: (and also for every file?)
-			segmentStep = sync2 - sync1
-			updatedSegmentDuration = time.Duration(segmentStep*millisecondsInSecond/uint64(timescale)) * time.Millisecond
+	// Sync samples may not have same time offset relative to each other,
+	// and some might even be further away from each other than desired segment duration.
+	// It this case we have to use large segment duration.
+	var maxDiff uint64
+	for i := uint32(1); i < stss.EntryCount(); i++ {
+		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[i-1])
+		sync2, _ := stts.GetDecodeTime(stss.SampleNumber[i])
+		if sync2-sync1 > maxDiff {
+			maxDiff = sync2 - sync1
 		}
 	}
+	if maxDiff > segmentStep {
+		// configured segment step is no good and should be increased,
+		// otherwise we're not able to create segments with same duration,
+		// which is crucial for dash.
+		segmentStep = maxDiff // TODO may be round it up?
+		updatedSegmentDuration = time.Duration(segmentStep*millisecondsInSecond/uint64(timescale)) * time.Millisecond
+	}
 
+	// Once we have valid segment duration, we can make sync points.
 	for _, sampleNumber := range stss.SampleNumber {
 		// Get decode time of the sample
 		decodeTime, _ := stts.GetDecodeTime(sampleNumber)
