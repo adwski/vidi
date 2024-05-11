@@ -314,7 +314,7 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 		h := sha256.New()
 		n, errCp := io.CopyN(h, f, partSize)
 		if errCp != nil {
-			if errors.Is(errCp, io.EOF) || i != partCount-1 {
+			if !errors.Is(errCp, io.EOF) || i != partCount-1 {
 				return fmt.Errorf("unable to calculate sha256 sum: %w", errCp)
 			}
 		}

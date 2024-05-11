@@ -111,9 +111,11 @@ func (mr *MediaReader) Read(b []byte) (int, error) {
 			}
 			n, err := mr.readers[partNum].Read(b[dstStart : dstStart+mustReadSize])
 			if err != nil {
-				err = fmt.Errorf("error reading bytes from pos %d [%d:%d] within same part %d: %w",
-					mr.pos, dstStart, dstStart+mustReadSize, partNum, err)
-				mr.err = err
+				if !errors.Is(err, io.EOF) {
+					err = fmt.Errorf("error reading bytes from pos %d [%d:%d] within same part %d: %w",
+						mr.pos, dstStart, dstStart+mustReadSize, partNum, err)
+					mr.err = err
+				}
 			}
 			mr.pos += uint64(n)
 			return int(mr.pos - start), err
@@ -251,7 +253,10 @@ func (mr *MediaReader) recycleReader(partNum uint64) error {
 	err := mr.readers[partNum].Close()
 	delete(mr.readers, partNum)
 	delete(mr.readersTS, partNum)
-	return fmt.Errorf("cannot close reader %d: %w", partNum, err)
+	if err != nil {
+		return fmt.Errorf("cannot close reader %d: %w", partNum, err)
+	}
+	return nil
 }
 
 func (mr *MediaReader) gc() {

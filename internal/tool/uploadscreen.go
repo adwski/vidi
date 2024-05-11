@@ -23,10 +23,10 @@ var (
 )
 
 type (
-	sUpload struct { //nolint:govet // embedded structs are not aligned optimally
+	sUpload struct { //nolint:govet // seems like affected by struct elements
+		err              error
 		help             *help.Model
 		form             *huh.Form
-		err              error
 		videoName        string
 		selectedFile     string
 		filePicker       filepicker.Model
