@@ -44,7 +44,7 @@ type MediaReader struct {
 	traceLogger *zap.Logger
 	store       MediaStore
 	readers     map[uint64]io.ReadSeekCloser
-	readersTs   map[uint64]int64
+	readersTS   map[uint64]int64
 	err         error
 	s3ath       string
 	parts       uint
@@ -61,7 +61,7 @@ func NewMediaReader(ms MediaStore, path string, parts uint, totalSize, partSize 
 		totalSize: totalSize,
 		partSize:  partSize,
 		readers:   make(map[uint64]io.ReadSeekCloser),
-		readersTs: make(map[uint64]int64),
+		readersTS: make(map[uint64]int64),
 	}
 }
 
@@ -226,7 +226,7 @@ func (mr *MediaReader) Close() error {
 		}
 	}
 	mr.readers = nil
-	mr.readersTs = nil
+	mr.readersTS = nil
 	return err
 }
 
@@ -240,7 +240,7 @@ func (mr *MediaReader) ensureReaderIsOpen(partNum uint64) error {
 		}
 		mr.readers[partNum] = rc
 	}
-	mr.readersTs[partNum] = time.Now().UnixMilli() // update time mark for readers gc
+	mr.readersTS[partNum] = time.Now().UnixMilli() // update time mark for readers gc
 	mr.gc()                                        // recycle least recently used readers
 	return nil
 }
@@ -248,7 +248,7 @@ func (mr *MediaReader) ensureReaderIsOpen(partNum uint64) error {
 func (mr *MediaReader) recycleReader(partNum uint64) error {
 	err := mr.readers[partNum].Close()
 	delete(mr.readers, partNum)
-	delete(mr.readersTs, partNum)
+	delete(mr.readersTS, partNum)
 	return err
 }
 
@@ -259,7 +259,7 @@ func (mr *MediaReader) gc() {
 			minTS  = time.Now().UnixMilli()
 			minNum uint64
 		)
-		for num, ts := range mr.readersTs {
+		for num, ts := range mr.readersTS {
 			if ts < minTS {
 				minTS = ts
 				minNum = num
@@ -271,6 +271,6 @@ func (mr *MediaReader) gc() {
 			return
 		}
 		delete(mr.readers, minNum)
-		delete(mr.readersTs, minNum)
+		delete(mr.readersTS, minNum)
 	}
 }
