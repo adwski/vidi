@@ -26,8 +26,10 @@ coverage.html
 # macos stuff
 .DS_Store
 
-# test video segments
+# test paths
 output/
+cmd/vidictl/test.go
+docker/compose/config/test.xml
 
 # certs
 docker/compose/tls/*
