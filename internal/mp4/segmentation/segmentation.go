@@ -1,5 +1,7 @@
 // Package segmentation contains high level functions for progressive mp4 file segmentation
 // The code is mostly based on https://github.com/Eyevinn/mp4ff/tree/master/examples/segmenter
+//
+//nolint:wrapcheck // avoid err chain cluttering, media reader will provide comprehensive error msg
 package segmentation
 
 import (
@@ -11,11 +13,11 @@ import (
 )
 
 const (
-	millisecondsInSecond = 1000
+	msecsInSec = 1000
 )
 
-// Point represents sample point in media track
-// that will be used for segmentation.
+// Point represents sync sample in media track
+// that will be used as segmentation point.
 type Point struct {
 	sampleNum        uint32
 	decodeTime       uint64
@@ -43,8 +45,8 @@ func GetFirstVideoTrackParams(m *mp4.File) (track *mp4.TrakBox, timescale uint32
 // first video track as reference track for time calculations.
 func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) (time.Duration, []Point, error) {
 	var (
-		updatedSegmentDuration time.Duration = 0
-		segmentStep                          = uint64(segmentDuration.Milliseconds()) * uint64(timescale) / millisecondsInSecond
+		updSegDuration time.Duration = 0
+		segmentStep                  = uint64(segmentDuration.Milliseconds()) * uint64(timescale) / msecsInSec
 
 		// https://youtu.be/CLvR9FVYwWs?t=840 (timing organisation)
 		// https://youtu.be/CLvR9FVYwWs?t=922 (timelines)
@@ -63,7 +65,7 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 
 	// Sync samples may not have same time offset relative to each other,
 	// and some might even be further away from each other than desired segment duration.
-	// It this case we have to use large segment duration.
+	// It this case we have to use larger segment duration.
 	var maxDiff uint64
 	for i := uint32(1); i < stss.EntryCount(); i++ {
 		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[i-1])
@@ -77,7 +79,7 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 		// otherwise we're not able to create segments with same duration,
 		// which is crucial for dash.
 		segmentStep = maxDiff // TODO may be round it up?
-		updatedSegmentDuration = time.Duration(segmentStep*millisecondsInSecond/uint64(timescale)) * time.Millisecond
+		updSegDuration = time.Duration(segmentStep*msecsInSec/uint64(timescale)) * time.Millisecond
 	}
 
 	// Once we have valid segment duration, we can make sync points.
@@ -105,7 +107,7 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 			nextSegmentStart += segmentStep
 		}
 	}
-	return updatedSegmentDuration, segmentationPoints, nil
+	return updSegDuration, segmentationPoints, nil
 }
 
 // Interval represents segment by its start and end samples (inclusive).
@@ -150,7 +152,12 @@ func MakeIntervals(timescale uint32, points []Point, track *mp4.TrakBox) ([]Inte
 }
 
 // GetSamplesData retrieves media data for specified sample interval.
-func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval, rs io.ReadSeeker) ([]mp4.FullSample, error) {
+func GetSamplesData(
+	mdat *mp4.MdatBox,
+	stbl *mp4.StblBox,
+	interval Interval,
+	rs io.ReadSeeker,
+) ([]mp4.FullSample, error) {
 	if stbl.Stco == nil {
 		return nil, fmt.Errorf("stco box is not present, co64 present: %v", stbl.Co64 != nil)
 	}

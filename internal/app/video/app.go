@@ -3,6 +3,7 @@ package video
 import (
 	"context"
 	"crypto/tls"
+
 	httpserver "github.com/adwski/vidi/internal/api/http/server"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video"

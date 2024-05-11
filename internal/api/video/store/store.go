@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+
 	"github.com/adwski/vidi/internal/api/store"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/mp4/meta"
@@ -115,7 +116,8 @@ func (s *Store) Create(ctx context.Context, vi *model.Video) error {
 func (s *Store) Get(ctx context.Context, id, userID string) (*model.Video, error) {
 	vi := &model.Video{ID: id, UserID: userID, PlaybackMeta: &meta.Meta{}}
 	query := `select location, status, playback_meta, created_at from videos where id = $1 and user_id = $2`
-	if err := s.Pool().QueryRow(ctx, query, id, userID).Scan(&vi.Location, &vi.Status, &vi.PlaybackMeta, &vi.CreatedAt); err != nil {
+	if err := s.Pool().QueryRow(ctx, query, id, userID).
+		Scan(&vi.Location, &vi.Status, &vi.PlaybackMeta, &vi.CreatedAt); err != nil {
 		return nil, handleDBErr(err)
 	}
 

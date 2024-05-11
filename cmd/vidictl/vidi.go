@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/adwski/vidi/internal/app/vidictl"
 	"os"
+
+	"github.com/adwski/vidi/internal/app/vidictl"
 )
 
 func main() {

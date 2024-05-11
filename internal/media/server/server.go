@@ -27,11 +27,11 @@ type Server struct {
 type Config struct {
 	Logger        *zap.Logger
 	Handler       fasthttp.RequestHandler
-	MaxBodySize   uint
 	ListenAddress string
 	ReadTimeout   time.Duration
 	WriteTimeout  time.Duration
 	IdleTimeout   time.Duration
+	MaxBodySize   uint
 }
 
 func New(cfg *Config) *Server {

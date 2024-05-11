@@ -1,10 +1,12 @@
+//nolint:mnd // threat this file as css ;)
 package tool
 
 import (
+	"math/rand"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"math/rand"
 )
 
 const (

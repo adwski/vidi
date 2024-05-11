@@ -161,7 +161,7 @@ func (svc *Service) handleUpload(ctx *fasthttp.RequestCtx) {
 
 func parseUint(b []byte) (num uint) {
 	for _, ch := range b {
-		num = num*10 + uint(ch-'0')
+		num = num*10 + uint(ch-'0') //nolint:mnd // no magic here
 	}
 	return
 }

@@ -3,10 +3,11 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/model"
 	"github.com/go-resty/resty/v2"
-	"strings"
 )
 
 const jwtCookieName = "vidiSessID"

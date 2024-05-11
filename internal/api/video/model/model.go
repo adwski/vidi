@@ -2,8 +2,9 @@ package model
 
 import (
 	"errors"
-	"github.com/adwski/vidi/internal/mp4/meta"
 	"time"
+
+	"github.com/adwski/vidi/internal/mp4/meta"
 )
 
 var (
@@ -24,15 +25,18 @@ var (
 )
 
 type Video struct {
-	CreatedAt    time.Time   `json:"created_at"`
-	ID           string      `json:"id"`
-	UserID       string      `json:"user_id"`
-	Name         string      `json:"name"`
-	Location     string      `json:"location,omitempty"`
-	Status       Status      `json:"status,omitempty"`
-	Size         uint64      `json:"size,omitempty"`
 	UploadInfo   *UploadInfo `json:"upload_info,omitempty"`
 	PlaybackMeta *meta.Meta  `json:"-"`
+
+	CreatedAt time.Time `json:"created_at"`
+
+	ID       string `json:"id"`
+	UserID   string `json:"user_id"`
+	Name     string `json:"name"`
+	Location string `json:"location,omitempty"`
+
+	Status Status `json:"status,omitempty"`
+	Size   uint64 `json:"size,omitempty"`
 }
 
 type UploadInfo struct {
@@ -54,8 +58,8 @@ type UserUsage struct {
 
 type CreateRequest struct {
 	Name  string  `json:"name"`
-	Size  uint64  `json:"size_total"`
 	Parts []*Part `json:"parts"`
+	Size  uint64  `json:"size_total"`
 }
 
 func NewVideoNoID(userID, name string, size uint64) *Video {

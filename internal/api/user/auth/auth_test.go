@@ -105,7 +105,7 @@ func TestAuth_MiddlewareService(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	echoMW := a.MiddlewareService()
+	echoMW := a.EchoAuthServiceSide()
 	var echoMWType echo.MiddlewareFunc
 	assert.IsType(t, echoMWType, echoMW)
 }
@@ -119,7 +119,7 @@ func TestAuth_MiddlewareUser(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	echoMW := a.MiddlewareUser()
+	echoMW := a.EchoAuthUserSide()
 	var echoMWType echo.MiddlewareFunc
 	assert.IsType(t, echoMWType, echoMW)
 }

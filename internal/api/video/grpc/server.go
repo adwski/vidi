@@ -4,6 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/adwski/vidi/internal/api/requestid"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
@@ -14,9 +18,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"net"
-	"sync"
-	"time"
 )
 
 const (
@@ -29,8 +30,8 @@ const (
 type Server struct {
 	logger       *zap.Logger
 	registerFunc func(s grpc.ServiceRegistrar)
-	opts         []grpc.ServerOption
 	addr         string
+	opts         []grpc.ServerOption
 	reflection   bool
 }
 
@@ -38,8 +39,8 @@ type Server struct {
 type Config struct {
 	Logger     *zap.Logger
 	Auth       *auth.Auth
-	ListenAddr string
 	TLSConfig  *tls.Config
+	ListenAddr string
 	Reflection bool
 }
 
@@ -71,14 +72,13 @@ func NewServer(cfg *Config, registerFunc func(s grpc.ServiceRegistrar)) (*Server
 		grpc.ChainUnaryInterceptor(grpcauth.UnaryServerInterceptor(cfg.Auth.GRPCAuthFunc)),
 	)
 
-	s := &Server{
+	return &Server{
 		logger:       cfg.Logger,
-		registerFunc: registerFunc,
-		opts:         opts,
 		addr:         cfg.ListenAddr,
 		reflection:   cfg.Reflection,
-	}
-	return s, nil
+		registerFunc: registerFunc,
+		opts:         opts,
+	}, nil
 }
 
 // Run starts grpc server and returns only when Listener stops (canceled).
@@ -152,10 +152,12 @@ func interceptorDeadline(deadline time.Duration) grpc.UnaryServerInterceptor {
 }
 
 // interceptorLogger creates zap-flavoured grpc logging interceptor.
-// Taken from https://github.com/grpc-ecosystem/go-grpc-middleware/blob/main/interceptors/logging/examples/zap/example_test.go
+// Taken from https://github.com/grpc-ecosystem/go-grpc-middleware/blob/main/interceptors/logging/examples/zap/example_test.go.
+//
+//nolint:lll // link
 func interceptorLogger(l *zap.Logger) grpc.UnaryServerInterceptor {
 	loggerFunc := func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
-		f := make([]zap.Field, 0, len(fields)/2)
+		f := make([]zap.Field, 0, len(fields)/2) //nolint:mnd // half
 
 		for i := 0; i < len(fields); i += 2 {
 			key := fields[i]

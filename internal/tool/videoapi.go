@@ -5,16 +5,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/dustin/go-humanize"
 	"github.com/minio/sha256-simd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"os"
-	"strconv"
-	"time"
 )
 
 const (
@@ -311,10 +312,10 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 	}
 	for i := uint64(0); i < partCount; i++ {
 		h := sha256.New()
-		n, err := io.CopyN(h, f, partSize)
-		if err != nil {
-			if err != io.EOF || i != partCount-1 {
-				return fmt.Errorf("unable to calculate sha256 sum: %w", err)
+		n, errCp := io.CopyN(h, f, partSize)
+		if errCp != nil {
+			if errors.Is(errCp, io.EOF) || i != partCount-1 {
+				return fmt.Errorf("unable to calculate sha256 sum: %w", errCp)
 			}
 		}
 		uploadInfo.Parts = append(uploadInfo.Parts, Part{
@@ -326,10 +327,6 @@ func (t *Tool) prepareParts(filePath string, size uint64) error {
 	t.logger.Debug("prepared upload info", zap.Any("info", uploadInfo))
 	t.state.activeUserUnsafe().CurrentUpload = uploadInfo
 	return t.state.persist()
-}
-
-func (t *Tool) getTmpDir() string {
-	return t.dir + "/tmp" + strconv.Itoa(int(time.Now().Unix()))
 }
 
 func (t *Tool) getUserMDCtx() context.Context {

@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/adwski/vidi/internal/mp4"
 	"github.com/adwski/vidi/internal/mp4/meta"
-	"io"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
 	"github.com/adwski/vidi/internal/mp4/segmenter"

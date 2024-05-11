@@ -1,15 +1,16 @@
 package http
 
 import (
-	"github.com/adwski/vidi/internal/api/video/model"
 	"time"
+
+	"github.com/adwski/vidi/internal/api/video/model"
 )
 
 type VideoResponse struct {
+	UploadInfo *model.UploadInfo `json:"upload_info,omitempty"`
 	ID         string            `json:"id"`
 	Status     string            `json:"status"`
 	CreatedAt  string            `json:"created_at"`
-	UploadInfo *model.UploadInfo `json:"upload_info,omitempty"`
 }
 
 func NewVideoResponse(v *model.Video) *VideoResponse {

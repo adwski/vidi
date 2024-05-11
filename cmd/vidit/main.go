@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/adwski/vidi/internal/tool"
 	"log"
 	"os"
+
+	"github.com/adwski/vidi/internal/tool"
 )
 
 func main() {

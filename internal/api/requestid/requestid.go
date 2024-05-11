@@ -5,8 +5,6 @@
 // Generator also implements GRPC server interceptor which
 // has option to trust incoming request id or generate new one.
 // Interceptor stores request id in context's values.
-//
-//nolint:wrapcheck // return grpc errors
 package requestid
 
 import (

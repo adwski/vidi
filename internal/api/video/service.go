@@ -1,11 +1,11 @@
-//nolint:wrapcheck  // we use echo-style handler returns, i.e. return c.JSON(..)
 package video
 
 import (
 	"context"
 	"fmt"
-	"github.com/adwski/vidi/internal/mp4"
 	"strings"
+
+	"github.com/adwski/vidi/internal/mp4"
 
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/generators"

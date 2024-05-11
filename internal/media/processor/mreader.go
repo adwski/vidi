@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -110,7 +111,8 @@ func (mr *MediaReader) Read(b []byte) (int, error) {
 			}
 			n, err := mr.readers[partNum].Read(b[dstStart : dstStart+mustReadSize])
 			if err != nil {
-				err = fmt.Errorf("error reading bytes from pos %d [%d:%d] within same part %d: %w", mr.pos, dstStart, dstStart+mustReadSize, partNum, err)
+				err = fmt.Errorf("error reading bytes from pos %d [%d:%d] within same part %d: %w",
+					mr.pos, dstStart, dstStart+mustReadSize, partNum, err)
 				mr.err = err
 			}
 			mr.pos += uint64(n)
@@ -127,19 +129,19 @@ func (mr *MediaReader) Read(b []byte) (int, error) {
 		amount := partBorder - mr.pos
 		n, err := mr.readers[partNum].Read(b[dstStart:amount])
 		if err != nil {
-			if err == io.EOF && uint64(n) == amount-dstStart {
-				// in case of success, we'll always end up here because we're reading part till the end
-				err = nil
-			} else {
-				err = fmt.Errorf("error reading full bytes from %d [%d:%d] from part %d: %w", mr.pos, dstStart, amount, partNum, err)
+			if !(errors.Is(err, io.EOF) && uint64(n) == amount-dstStart) {
+				err = fmt.Errorf("error reading full bytes from %d [%d:%d] from part %d: %w",
+					mr.pos, dstStart, amount, partNum, err)
 				mr.err = err
 				mr.pos += uint64(n)
 				return int(mr.pos - start), err
 			}
+			// in case of success, we'll always end up here because we're reading part till the end
 		} else {
 			// err should not be nil, classic case of "error: no error"
 			mr.pos += uint64(n)
-			return int(mr.pos - start), fmt.Errorf("did not reach EOF while fully reading part: %d, read bytes: %d", partNum, n)
+			err = fmt.Errorf("did not reach EOF while fully reading part: %d, read bytes: %d", partNum, n)
+			return int(mr.pos - start), err
 		}
 		// advance input buffer position
 		dstStart += amount
@@ -249,7 +251,7 @@ func (mr *MediaReader) recycleReader(partNum uint64) error {
 	err := mr.readers[partNum].Close()
 	delete(mr.readers, partNum)
 	delete(mr.readersTS, partNum)
-	return err
+	return fmt.Errorf("cannot close reader %d: %w", partNum, err)
 }
 
 func (mr *MediaReader) gc() {

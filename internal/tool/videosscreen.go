@@ -1,26 +1,26 @@
-//nolint:gomnd
+//nolint:mnd // table sizes
 package tool
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strconv"
 )
 
 type (
-	sVideos struct {
+	sVideos struct { //nolint:govet // embedded structs are not aligned optimally
+		err        error
+		videos     [][2]string
+		help       *help.Model
+		watchURL   string
 		table      table.Model
 		keys       keyMap
-		help       *help.Model
-		videos     [][2]string
-		err        error
-		watchURL   string
 		videoToDel int
-		delConfirm bool
 	}
 
 	videosControl struct {
@@ -59,7 +59,6 @@ func newVideosScreen(videos []Video) *sVideos {
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		//table.WithHeight(20),
 	)
 
 	s := table.DefaultStyles()
@@ -166,12 +165,13 @@ func (s *sVideos) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 
 func (s *sVideos) view() string {
 	var footer = "\n"
-	if s.videoToDel > -1 {
+	switch {
+	case s.videoToDel > -1:
 		footer = confirmStyle.Render(fmt.Sprintf(">> Delete video %d: '%s'? Press [Y]es or any key to cancel\n",
 			s.videoToDel+1, s.videos[s.videoToDel][1]))
-	} else if len(s.watchURL) > 0 {
+	case len(s.watchURL) > 0:
 		footer = confirmStyle.Render(fmt.Sprintf(">> Watch URL: %s\n", s.watchURL))
-	} else if s.err != nil {
+	case s.err != nil:
 		footer = errStyleFooter.Render(fmt.Sprintf(">> Error: %s\n", s.err.Error()))
 	}
 	return containerWithBorder.Render(s.table.View()) + "\n" + footer + "\n\n" + s.help.View(s.keys)

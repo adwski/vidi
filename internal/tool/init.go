@@ -5,12 +5,13 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"os"
+
 	userapi "github.com/adwski/vidi/internal/api/user/client"
 	videoapi "github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"os"
 )
 
 // initialize initializes application up to the point
@@ -36,7 +37,7 @@ func initStateDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot identify home dir: %w", err)
 	}
-	if err = os.MkdirAll(dir+stateDir, 0700); err != nil {
+	if err = os.MkdirAll(dir+stateDir, stateDirPerm); err != nil {
 		return "", fmt.Errorf("cannot create state directory: %w", err)
 	}
 	return dir + stateDir, nil

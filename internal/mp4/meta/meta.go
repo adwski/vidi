@@ -2,9 +2,10 @@ package meta
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 	jsoniter "github.com/json-iterator/go"
-	"time"
 )
 
 var (
@@ -43,5 +44,5 @@ func (mt *Meta) TextValue() (pgtype.Text, error) {
 }
 
 func (mt *Meta) ScanText(t pgtype.Text) error {
-	return jEnc.Unmarshal([]byte(t.String), mt)
+	return jEnc.Unmarshal([]byte(t.String), mt) //nolint:wrapcheck // unmarshal err wrap is unnecessary
 }

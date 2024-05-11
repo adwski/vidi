@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	apihttp "github.com/adwski/vidi/internal/api/http"
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/auth"
@@ -12,8 +15,6 @@ import (
 	"github.com/adwski/vidi/internal/generators"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
-	"net/http"
-	"strings"
 )
 
 type Store interface {

@@ -2,9 +2,10 @@ package tool
 
 import (
 	"fmt"
+	"strconv"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"strconv"
 )
 
 const (

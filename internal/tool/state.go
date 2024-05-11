@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -17,25 +18,31 @@ const (
 	logFile   = "/log.json"
 
 	configURLPath = "/config.json"
+
+	minUserNameLen = 3
+	minPasswordLen = 8
+
+	stateDirPerm  = 0700
+	stateFilePerm = 0600
 )
 
 type (
-	State struct {
+	State struct { //nolint:govet // unexported params moved at the bottom for readability
+		Users       []User `json:"users"`
 		Endpoint    string `json:"endpoint"`
 		CurrentUser int    `json:"current_user"`
-		Users       []User `json:"users"`
 
 		dir string
 		p   *jwt.Parser
 	}
 
 	User struct {
+		CurrentUpload  *Upload      `json:"upload"`
 		Name           string       `json:"name"`
 		Token          string       `json:"token"`
-		TokenExpiresAt int64        `json:"expires_at"`
-		CurrentUpload  *Upload      `json:"upload"`
 		Videos         []Video      `json:"-"`
 		QuotaUsage     []QuotaParam `json:"-"`
+		TokenExpiresAt int64        `json:"expires_at"`
 	}
 
 	Video struct {
@@ -54,9 +61,9 @@ type (
 	}
 
 	Part struct {
+		Checksum string `json:"checksum"`
 		Num      uint   `json:"num"`
 		Size     uint   `json:"size"`
-		Checksum string `json:"checksum"`
 	}
 
 	QuotaParam struct {
@@ -124,7 +131,7 @@ func (s *State) load() error {
 }
 
 func (s *State) persist() error {
-	f, err := os.OpenFile(s.dir+stateFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(s.dir+stateFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, stateFilePerm)
 	if err != nil {
 		return fmt.Errorf("cannot open state file for writing: %w", err)
 	}
@@ -149,7 +156,7 @@ func (s *State) sanitize() {
 	// check usernames
 	ln := len(s.Users)
 	for i := 0; i < ln; {
-		if len(s.Users[i].Name) < 3 {
+		if len(s.Users[i].Name) < minUserNameLen {
 			// invalid user, remove it
 			if i < ln-1 {
 				s.Users[i], s.Users[ln-1] = s.Users[ln-1], s.Users[i]

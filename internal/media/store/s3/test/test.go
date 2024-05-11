@@ -3,10 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"log"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"log"
 )
 
 func main() {

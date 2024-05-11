@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/adwski/vidi/internal/media/store"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/sha256-simd"
 	"go.uber.org/zap"
-	"io"
-	"net/http"
 )
 
 // Store is media store that uses s3 compatible storage.

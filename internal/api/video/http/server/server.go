@@ -1,8 +1,11 @@
+//nolint:wrapcheck  // we use echo-style handler returns, i.e. return c.JSON(..)
 package server
 
 import (
 	"errors"
 	"fmt"
+	"net/http"
+
 	apihttp "github.com/adwski/vidi/internal/api/http"
 	"github.com/adwski/vidi/internal/api/http/server"
 	common "github.com/adwski/vidi/internal/api/model"
@@ -12,7 +15,6 @@ import (
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 type Server struct {
@@ -24,8 +26,8 @@ type Server struct {
 type Config struct {
 	Logger     *zap.Logger
 	Auth       *auth.Auth
-	APIPrefix  string
 	HTTPConfig *server.Config
+	APIPrefix  string
 }
 
 func NewServer(cfg *Config, videoSvc *video.Service) (*Server, error) {
@@ -83,31 +85,6 @@ func (srv *Server) getUser(c echo.Context) (*user.User, error, bool) {
 		ID:   claims.UserID,
 		Name: claims.Name,
 	}, nil, true
-}
-
-func (srv *Server) serviceAuth(c echo.Context) error {
-	claims, err := auth.GetClaimFromEchoContext(c)
-	if err != nil {
-		srv.logger.Error("service auth fail", zap.Any("claims", claims))
-		return c.JSON(http.StatusUnauthorized, common.ResponseUnauthorized)
-	}
-	logf := srv.logger.With(zap.String("id", claims.UserID),
-		zap.String("name", claims.Name),
-		zap.String("role", claims.Role))
-
-	if claims.IsService() {
-		logf.Debug("service auth ok")
-		return nil
-	}
-	logf.Error("service auth incorrect role")
-	return c.JSON(http.StatusUnauthorized, common.ResponseUnauthorized)
-}
-
-func (srv *Server) commonResponse(c echo.Context, err error) error {
-	if err == nil {
-		return c.JSON(http.StatusOK, common.ResponseOK)
-	}
-	return srv.erroredResponse(c, err)
 }
 
 func (srv *Server) erroredResponse(c echo.Context, err error) error {

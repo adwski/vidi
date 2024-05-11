@@ -1,13 +1,15 @@
+//nolint:wrapcheck  // we use echo-style handler returns, i.e. return c.JSON(..)
 package server
 
 import (
 	"errors"
+	"net/http"
+
 	common "github.com/adwski/vidi/internal/api/model"
 	httpmodel "github.com/adwski/vidi/internal/api/video/http"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 func (srv *Server) getQuota(c echo.Context) error {
@@ -108,62 +110,3 @@ func (srv *Server) createVideo(c echo.Context) error {
 	}
 	return c.JSON(http.StatusCreated, httpmodel.NewVideoResponse(vide))
 }
-
-/*
-func (srv *Server) updateVideoStatus(c echo.Context) error {
-	if err := srv.serviceAuth(c); err != nil {
-		return err
-	}
-	if err := srv.videoSvc.UpdateVideoStatus(
-		c.Request().Context(),
-		c.Param("id"),
-		c.Param("status"),
-	); err != nil {
-		if errors.Is(err, model.ErrIncorrectStatusName) {
-			return c.JSON(http.StatusBadRequest, common.ResponseIncorrectStatus)
-		}
-		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
-	}
-	return c.JSON(http.StatusOK, common.ResponseOK)
-}
-
-func (srv *Server) updateVideo(c echo.Context) error {
-	if err := srv.serviceAuth(c); err != nil {
-		return err
-	}
-	if err := srv.videoSvc.UpdateVideoStatusAndLocation(
-		c.Request().Context(),
-		c.Param("id"),
-		c.Param("status"),
-		c.Param("location"),
-	); err != nil {
-		switch {
-		case errors.Is(err, model.ErrIncorrectStatusName), errors.Is(err, model.ErrEmptyLocation):
-			return c.JSON(http.StatusBadRequest, err.Error())
-		default:
-			return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
-		}
-	}
-	return c.JSON(http.StatusOK, common.ResponseOK)
-}
-
-func (srv *Server) searchVideos(c echo.Context) error {
-	if err := srv.serviceAuth(c); err != nil {
-		return err
-	}
-	var req httpmodel.ListRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, common.ResponseIncorrectParams)
-	}
-	videos, err := srv.videoSvc.GetVideosByStatus(c.Request().Context(), req.Status)
-	if err != nil {
-		switch {
-		case errors.Is(err, model.ErrIncorrectStatusName), errors.Is(err, model.ErrEmptyLocation):
-			return c.JSON(http.StatusBadRequest, err.Error())
-		default:
-			return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
-		}
-	}
-	return c.JSON(http.StatusOK, videos)
-}
-*/

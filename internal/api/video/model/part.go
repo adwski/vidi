@@ -7,8 +7,8 @@ const (
 )
 
 type Part struct {
+	Checksum string `json:"checksum"`
 	Num      uint   `json:"num"`
 	Size     uint64 `json:"size"`
 	Status   int    `json:"status"`
-	Checksum string `json:"checksum"`
 }

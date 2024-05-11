@@ -1,4 +1,4 @@
-//nolint:gomnd
+//nolint:mnd // table sizes
 package tool
 
 import (
@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	sQuotas struct {
+	sQuotas struct { //nolint:govet // embedded structs are not aligned optimally
 		help  *help.Model
 		table table.Model
 		km    keyMap
@@ -64,7 +64,7 @@ func newQuotasScreen(quotas []QuotaParam) *sQuotas {
 			key.WithHelp("↓", "move down"),
 		),
 		Return: key.NewBinding(
-			key.WithKeys("←", "backspace", "esc"),
+			key.WithKeys("←", "backspace", "esc"), //nolint:goconst // key names
 			key.WithHelp("←/esc/backspace", "go back"),
 		),
 	}

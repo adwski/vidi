@@ -3,10 +3,11 @@ package tool
 import (
 	"errors"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"net/url"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 )
 
 const (
@@ -18,7 +19,6 @@ type (
 
 	sConfig struct {
 		form *huh.Form
-		ep   *url.URL
 	}
 )
 

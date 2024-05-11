@@ -35,11 +35,16 @@ type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) erro
 type Segmenter struct {
 	logger          *zap.Logger
 	boxStoreFunc    BoxStoreFunc
-	segmentDuration time.Duration
 	mdatRS          io.ReadSeeker
+	segmentDuration time.Duration
 }
 
-func NewSegmenter(logger *zap.Logger, mdatRS io.ReadSeeker, segDuration time.Duration, boxStoreFunc BoxStoreFunc) *Segmenter {
+func NewSegmenter(
+	logger *zap.Logger,
+	mdatRS io.ReadSeeker,
+	segDuration time.Duration,
+	boxStoreFunc BoxStoreFunc,
+) *Segmenter {
 	return &Segmenter{
 		logger:          logger,
 		mdatRS:          mdatRS,

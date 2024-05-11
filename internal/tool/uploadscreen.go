@@ -2,14 +2,15 @@ package tool
 
 import (
 	"errors"
+	"os"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"os"
-	"strings"
 )
 
 const (
@@ -22,24 +23,24 @@ var (
 )
 
 type (
-	sUpload struct {
-		filePicker       filepicker.Model
-		form             *huh.Form
-		progress         progress.Model
-		keys             keyMap
+	sUpload struct { //nolint:govet // embedded structs are not aligned optimally
 		help             *help.Model
+		form             *huh.Form
+		err              error
 		videoName        string
 		selectedFile     string
-		err              error
+		filePicker       filepicker.Model
+		progress         progress.Model
+		keys             keyMap
 		uploading        bool
 		done             bool
 		alreadyCompleted bool
 	}
 
 	uploadControl struct {
-		msg  int
 		name string
 		path string
+		msg  int
 	}
 
 	uploadCompleted struct {
@@ -47,9 +48,8 @@ type (
 	}
 
 	uploadProgress struct {
-		completed        uint64
-		total            uint64
-		alreadyCompleted bool
+		completed uint64
+		total     uint64
 	}
 
 	uploadInfo struct {
@@ -122,8 +122,7 @@ func (s *sUpload) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 	if !s.uploading {
 		// user is still entering upload params, can go back with esc
 		if m, ok := msg.(tea.KeyMsg); ok {
-			switch m.String() {
-			case "esc":
+			if m.String() == "esc" {
 				return nil, &outerControl{data: uploadControl{}}
 			}
 		}
@@ -186,7 +185,7 @@ func (s *sUpload) update(msg tea.Msg) (tea.Cmd, *outerControl) {
 	case progress.FrameMsg:
 		// animations
 		progressModel, cmd := s.progress.Update(msg)
-		s.progress = progressModel.(progress.Model)
+		s.progress = progressModel.(progress.Model) //nolint:errcheck // always be progress.Model, this is 'tea-style'
 		return cmd, nil
 	}
 	return nil, nil
@@ -213,13 +212,14 @@ func (s *sUpload) renderUploadProgress() string {
 	sb.WriteString("Path: ")
 	sb.WriteString(s.selectedFile)
 	sb.WriteString("\n\n")
-	if s.err != nil {
+	switch {
+	case s.err != nil:
 		sb.WriteString("Upload error: ")
 		sb.WriteString(s.err.Error())
-		sb.WriteString("\nPress any key to continue...\n\n")
-	} else if s.alreadyCompleted {
+		sb.WriteString("\n\n\n")
+	case s.alreadyCompleted:
 		sb.WriteString("Upload was completed before! Press any key to continue...\n\n")
-	} else if s.done {
+	case s.done:
 		sb.WriteString("Upload completed successfully! Press any key to continue...\n\n")
 	}
 	return sb.String() + s.progress.View()

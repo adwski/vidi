@@ -1,8 +1,13 @@
+//nolint:godot // false positives
 package tool
 
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+
 	userapi "github.com/adwski/vidi/internal/api/user/client"
 	videoapi "github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"github.com/adwski/vidi/internal/logging"
@@ -10,9 +15,6 @@ import (
 	"github.com/enescakir/emoji"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
-	"os"
-	"os/signal"
-	"sync"
 )
 
 type (
@@ -32,11 +34,11 @@ type (
 		// tool's persistent state
 		state *State
 
-		// tool's homeDir
-		dir string
-
 		// current screen
 		screen screen
+
+		// tool's homeDir
+		dir string
 
 		// flag indicating that user selected to enter credentials
 		enterCreds bool
@@ -101,7 +103,7 @@ func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
 	go t.listenForEvents(ctx, wg)
 	if _, err := t.prog.Run(); err != nil {
 		t.logger.Error("runtime error", zap.Error(err), zap.Stack("stack"))
-		return err
+		return fmt.Errorf("runtime error: %w", err)
 	}
 	t.logger.Debug("program exited")
 	return nil
@@ -199,12 +201,13 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 		}
 	case videosControl:
-		if dta.vid == "" {
+		switch {
+		case dta.vid == "":
 			t.mainFlowScreen = mainFlowScreenMainMenu
-		} else if dta.delete {
+		case dta.delete:
 			t.err = t.deleteVideo(dta.vid)
 			t.mainFlowScreen = mainFlowScreenMainMenu
-		} else if dta.watch {
+		case dta.watch:
 			go t.getWatchURL(dta.vid)
 		}
 	case quotasControl:

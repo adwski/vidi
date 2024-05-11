@@ -2,9 +2,10 @@ package tool
 
 import (
 	"fmt"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"strings"
 )
 
 const (
@@ -24,10 +25,8 @@ func (uc userControl) String() string {
 }
 
 type sNewUser struct {
-	form     *huh.Form
-	username string
-	password string
-	option   int
+	form   *huh.Form
+	option int
 }
 
 func newUserScreen() *sNewUser {
@@ -56,14 +55,14 @@ func newUserScreen() *sNewUser {
 }
 
 func validateUsername(s string) error {
-	if len(s) < 3 {
+	if len(s) < minUserNameLen {
 		return fmt.Errorf("username should not be less than 3 letters")
 	}
 	return nil
 }
 
 func validatePassword(s string) error {
-	if len(s) < 8 {
+	if len(s) < minPasswordLen {
 		return fmt.Errorf("password should not be less than 8 letters")
 	}
 	return nil

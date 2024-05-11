@@ -5,6 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
 	video "github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -16,10 +21,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"io"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -152,14 +153,20 @@ func (p *Processor) processVideo(ctx context.Context, v *pb.Video) ([]byte, erro
 		zap.String("location", v.Location),
 		zap.Int("parts", len(v.Parts)),
 		zap.Uint64("size", v.Size))
-	if len(v.Parts) == 0 {
+	switch {
+	case len(v.Parts) == 0:
 		return nil, errors.New("video has no parts")
-	} else if v.Size == 0 {
+	case v.Size == 0:
 		return nil, errors.New("video has zero size")
-	} else if defaultPartSize*uint64(len(v.Parts)-1) > v.Size || v.Size > defaultPartSize*uint64(len(v.Parts)) {
+	case defaultPartSize*uint64(len(v.Parts)-1) > v.Size || v.Size > defaultPartSize*uint64(len(v.Parts)):
 		return nil, fmt.Errorf("incorrect parts amount(%d) for video size(%d)", len(v.Parts), v.Size)
 	}
-	mr := NewMediaReader(p.st, fmt.Sprintf("%s/%s", p.inputPathPrefix, v.Location), uint(len(v.Parts)), v.Size, defaultPartSize)
+	mr := NewMediaReader(
+		p.st,
+		fmt.Sprintf("%s/%s", p.inputPathPrefix, v.Location),
+		uint(len(v.Parts)),
+		v.Size,
+		defaultPartSize)
 	defer func() {
 		if err := mr.Close(); err != nil {
 			p.logger.Error("error closing media reader",

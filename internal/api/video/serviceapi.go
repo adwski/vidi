@@ -4,6 +4,7 @@ package video
 import (
 	"context"
 	"errors"
+
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/mp4/meta"
 	"github.com/vmihailenco/msgpack/v5"
@@ -27,7 +28,12 @@ func (svc *Service) UpdateVideoStatus(ctx context.Context, vid string, status mo
 	return nil
 }
 
-func (svc *Service) UpdateVideoStatusAndMeta(ctx context.Context, vid string, status model.Status, pbMeta []byte) error {
+func (svc *Service) UpdateVideoStatusAndMeta(
+	ctx context.Context,
+	vid string,
+	status model.Status,
+	pbMeta []byte,
+) error {
 	if err := model.ValidateStatus(status); err != nil {
 		return err // passing ErrIncorrectStatusNum as is
 	}

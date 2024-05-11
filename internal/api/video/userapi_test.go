@@ -1,286 +1,96 @@
-//nolint:dupl //similar test cases
 package video
 
 import (
+	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/adwski/vidi/internal/api/user/auth"
+	usermodel "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video/model"
-	"github.com/adwski/vidi/internal/generators"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-func TestService_getVideoNoSession(t *testing.T) {
+func TestService_getVideosDBError(t *testing.T) {
 	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-	}
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-
-	err = svc.getVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, ctx.Response().Status)
-}
-
-func TestService_getVideosNoSession(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      NewMockStore(t),
-	}
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-
-	err = svc.getVideos(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, ctx.Response().Status)
-}
-
-func TestService_getVideosError(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
 	require.NoError(t, err)
 
 	s := NewMockStore(t)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      s,
-	}
+	svc := NewService(&ServiceConfig{
+		Logger: logger,
+		Store:  s,
+	})
 
 	s.EXPECT().GetAll(mock.Anything, "qweqweqwe").Return(nil, errors.New("err"))
+	u := usermodel.User{ID: "test"}
 
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-	ctx.Set("vUser", &jwt.Token{Claims: &auth.Claims{
-		UserID: "qweqweqwe",
-	}})
-
-	err = svc.getVideos(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusInternalServerError, ctx.Response().Status)
-}
-
-func TestService_watchVideoNoSession(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
-
-	svc := Service{
-		logger: logger,
-		auth:   a,
-	}
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-
-	err = svc.watchVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, ctx.Response().Status)
+	videos, err := svc.GetVideos(context.TODO(), &u)
+	require.ErrorIs(t, err, model.ErrStorage)
+	require.Nil(t, videos)
 }
 
 func TestService_watchVideoDBError(t *testing.T) {
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
 
 	s := NewMockStore(t)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      s,
-	}
-
-	s.EXPECT().Get(mock.Anything, mock.Anything, "qweqweqwe").Return(nil, errors.New("err"))
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-	ctx.Set("vUser", &jwt.Token{Claims: &auth.Claims{
-		UserID: "qweqweqwe",
-	}})
-
-	err = svc.watchVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusInternalServerError, ctx.Response().Status)
-}
-
-func TestService_watchVideoError(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
+	svc := NewService(&ServiceConfig{
+		Logger: logger,
+		Store:  s,
 	})
-	require.NoError(t, err)
 
-	s := NewMockStore(t)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      s,
-	}
+	vid := "test"
+	userID := "test"
+	s.EXPECT().Get(mock.Anything, vid, userID).Return(nil, errors.New("err"))
+	u := usermodel.User{ID: userID}
 
-	s.EXPECT().Get(mock.Anything, mock.Anything, "qweqweqwe").Return(&model.Video{
-		Status: model.StatusError,
-	}, nil)
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-	ctx.Set("vUser", &jwt.Token{Claims: &auth.Claims{
-		UserID: "qweqweqwe",
-	}})
-
-	err = svc.watchVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, ctx.Response().Status)
-}
-
-func TestService_deleteVideoNoSession(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
-
-	svc := Service{
-		logger: logger,
-		auth:   a,
-	}
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-
-	err = svc.deleteVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, ctx.Response().Status)
+	v, err := svc.WatchVideo(context.TODO(), &u, vid, false)
+	require.ErrorIs(t, err, model.ErrStorage)
+	require.Nil(t, v)
 }
 
 func TestService_deleteVideoDBError(t *testing.T) {
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
 
 	s := NewMockStore(t)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      s,
-	}
-
-	s.EXPECT().Delete(mock.Anything, mock.Anything, "qweqweqwe").Return(errors.New("err"))
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-	ctx.Set("vUser", &jwt.Token{Claims: &auth.Claims{
-		UserID: "qweqweqwe",
-	}})
-
-	err = svc.deleteVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusInternalServerError, ctx.Response().Status)
-}
-
-func TestService_createVideoNoSession(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
+	svc := NewService(&ServiceConfig{
+		Logger: logger,
+		Store:  s,
 	})
-	require.NoError(t, err)
 
-	svc := Service{
-		logger: logger,
-		auth:   a,
-	}
+	vid := "test"
+	userID := "test"
+	s.EXPECT().Delete(mock.Anything, vid, userID).Return(errors.New("err"))
+	u := usermodel.User{ID: userID}
 
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-
-	err = svc.createVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, ctx.Response().Status)
+	err = svc.DeleteVideo(context.TODO(), &u, vid)
+	require.ErrorIs(t, err, model.ErrStorage)
 }
 
 func TestService_createVideoDBError(t *testing.T) {
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
-	a, err := auth.NewAuth(&auth.Config{
-		Secret: "qweqeqwe",
-	})
-	require.NoError(t, err)
 
 	s := NewMockStore(t)
-	svc := Service{
-		logger: logger,
-		auth:   a,
-		s:      s,
-		idGen:  generators.NewID(),
-	}
+	svc := NewService(&ServiceConfig{
+		Logger: logger,
+		Store:  s,
+	})
 
+	u := usermodel.User{ID: "test"}
 	s.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("err"))
-
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	ctx := echo.New().NewContext(r, w)
-	ctx.Set("vUser", &jwt.Token{Claims: &auth.Claims{
-		UserID: "qweqweqwe",
-	}})
-
-	err = svc.createVideo(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, http.StatusInternalServerError, ctx.Response().Status)
+	v, err := svc.CreateVideo(context.TODO(), &u, &model.CreateRequest{
+		Name: "test",
+		Size: 123,
+		Parts: []*model.Part{{
+			Num:      0,
+			Size:     123,
+			Status:   0,
+			Checksum: "checksum",
+		}},
+	})
+	require.Nil(t, v)
+	require.ErrorIs(t, err, model.ErrStorage)
 }

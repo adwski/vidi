@@ -3,6 +3,8 @@ package notificator
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/adwski/vidi/internal/api/video/grpc/serviceside/pb"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/event"
@@ -10,7 +12,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"sync"
 )
 
 const (

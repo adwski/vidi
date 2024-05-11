@@ -46,7 +46,8 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 	if updatedSegDuration != 0 {
 		printW(w, "segment duration was updated: %v\n", updatedSegDuration)
 	}
-	printW(w, "segment points (%d) with %v duration (err: %v): %v\n", len(segmentPoints), segmentDuration, errSP, segmentPoints)
+	printW(w, "segment points (%d) with %v duration (err: %v): %v\n",
+		len(segmentPoints), segmentDuration, errSP, segmentPoints)
 	if errSP != nil {
 		return
 	}

@@ -40,12 +40,12 @@ func GetZapLoggerConsole() *zap.Logger {
 }
 
 func GetZapLoggerFile(path string) (*zap.Logger, error) {
-	return zap.Config{
+	return zap.Config{ //nolint:wrapcheck // wrap is redundant here
 		Level:       zap.NewAtomicLevelAt(defaultLogLevel),
 		Development: false,
 		Sampling: &zap.SamplingConfig{
-			Initial:    100,
-			Thereafter: 100,
+			Initial:    100, //nolint:mnd // After the first 100 log entries with the same level and
+			Thereafter: 100, //nolint:mnd // message in the same second zap will log every 100th entry. (quote)
 		},
 		Encoding:         "json",
 		EncoderConfig:    getEncoderConfig(),

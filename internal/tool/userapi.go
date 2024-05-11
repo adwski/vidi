@@ -2,6 +2,7 @@ package tool
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 )
 
@@ -16,7 +17,7 @@ func (t *Tool) processNewUser(uc userControl) (err error) {
 		return fmt.Errorf("invalid option: %d", uc.option)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("new user error: %w", err)
 	}
 	t.state.Users = append(t.state.Users, User{
 		Name:  uc.username,
@@ -35,7 +36,7 @@ func (t *Tool) processNewUser(uc userControl) (err error) {
 func (t *Tool) processLoginExistingUser(username, password string) error {
 	token, err := t.userapi.Login(username, password)
 	if err != nil {
-		return err
+		return fmt.Errorf("login error: %w", err)
 	}
 	t.state.Users[t.state.CurrentUser].Token = token
 	if err = t.state.persist(); err != nil {

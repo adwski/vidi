@@ -3,12 +3,13 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	common "github.com/adwski/vidi/internal/api/model"
 	httpmodel "github.com/adwski/vidi/internal/api/video/http"
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
-	"strings"
 )
 
 const (

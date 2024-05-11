@@ -1,9 +1,11 @@
+//nolint:wrapcheck  // return grpc statuses as errors
 package serviceside
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/video"
 	g "github.com/adwski/vidi/internal/api/video/grpc"
@@ -71,7 +73,6 @@ func (srv *Server) GetVideosByStatus(ctx context.Context, req *pb.GetByStatusReq
 			}
 		}
 		resp.Videos = append(resp.Videos, pbv)
-
 	}
 	return &resp, nil
 }
@@ -87,7 +88,10 @@ func (srv *Server) UpdateVideo(ctx context.Context, req *pb.UpdateVideoRequest) 
 	return &pb.UpdateVideoResponse{}, nil
 }
 
-func (srv *Server) UpdateVideoStatus(ctx context.Context, req *pb.UpdateVideoStatusRequest) (*pb.UpdateVideoStatusResponse, error) {
+func (srv *Server) UpdateVideoStatus(
+	ctx context.Context,
+	req *pb.UpdateVideoStatusRequest,
+) (*pb.UpdateVideoStatusResponse, error) {
 	if err := checkServiceClaims(ctx); err != nil {
 		return nil, err
 	}
@@ -98,7 +102,10 @@ func (srv *Server) UpdateVideoStatus(ctx context.Context, req *pb.UpdateVideoSta
 	return &pb.UpdateVideoStatusResponse{}, nil
 }
 
-func (srv *Server) NotifyPartUpload(ctx context.Context, req *pb.NotifyPartUploadRequest) (*pb.NotifyPartUploadResponse, error) {
+func (srv *Server) NotifyPartUpload(
+	ctx context.Context,
+	req *pb.NotifyPartUploadRequest,
+) (*pb.NotifyPartUploadResponse, error) {
 	if err := checkServiceClaims(ctx); err != nil {
 		return nil, err
 	}

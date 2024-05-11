@@ -3,6 +3,11 @@
 package e2e
 
 import (
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/Eyevinn/dash-mpd/mpd"
 	common "github.com/adwski/vidi/internal/api/model"
 	"github.com/adwski/vidi/internal/api/user/model"
@@ -13,10 +18,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"os"
-	"strings"
-	"testing"
 )
 
 const (

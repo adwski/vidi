@@ -1,9 +1,11 @@
+//nolint:wrapcheck  // return grpc statuses as errors
 package userside
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/adwski/vidi/internal/api/user/auth"
 	user "github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/api/video"
@@ -152,7 +154,7 @@ func (srv *Server) DeleteVideo(ctx context.Context, req *pb.DeleteRequest) (*pb.
 		srv.logger.Error("DeleteVideo failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "cannot delete video")
 	}
-	return nil, nil
+	return &pb.DeleteVideoResponse{}, nil
 }
 
 func videoResponse(v *model.Video) *pb.VideoResponse {

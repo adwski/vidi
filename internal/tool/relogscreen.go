@@ -2,6 +2,7 @@ package tool
 
 import (
 	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 )
@@ -12,9 +13,7 @@ type (
 	}
 
 	sReLog struct {
-		form     *huh.Form
-		password string
-		option   int
+		form *huh.Form
 	}
 )
 

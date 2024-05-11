@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,11 +19,11 @@ const (
 func (a *Auth) GRPCAuthFunc(ctx context.Context) (context.Context, error) {
 	token, err := auth.AuthFromMD(ctx, authScheme)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "missing token")
+		return nil, status.Error(codes.Unauthenticated, "missing token") //nolint:wrapcheck // returned to user
 	}
 	claims, err := a.parseToken(token)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid token")
+		return nil, status.Error(codes.Unauthenticated, "invalid token") //nolint:wrapcheck // returned to user
 	}
 	return context.WithValue(ctx, ctxKeyClaims, claims), nil
 }
