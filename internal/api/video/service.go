@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/adwski/vidi/internal/mp4"
-
 	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/adwski/vidi/internal/generators"
-	sessionStore "github.com/adwski/vidi/internal/session/store"
+	"github.com/adwski/vidi/internal/mp4"
+	"github.com/adwski/vidi/internal/session"
 	"go.uber.org/zap"
 )
 
+// Store is used by videoapi service to store Video and Part objects.
 type Store interface {
 	Create(ctx context.Context, vi *model.Video) error
 	Get(ctx context.Context, id string, userID string) (*model.Video, error)
@@ -28,6 +28,12 @@ type Store interface {
 	DeleteUploadedParts(ctx context.Context, vid string) error
 }
 
+// SessionStore stores upload and watch sessions.
+type SessionStore interface {
+	Set(ctx context.Context, session *session.Session) error
+	Get(ctx context.Context, id string) (*session.Session, error)
+}
+
 // Service is a Video API service. It has two "realms": user-side API and service-side API.
 //
 // User-side API provides CRUD operations with Video objects for a single user.
@@ -41,8 +47,8 @@ type Store interface {
 type Service struct {
 	logger          *zap.Logger
 	idGen           *generators.ID
-	watchSessions   *sessionStore.Store
-	uploadSessions  *sessionStore.Store
+	watchSessions   SessionStore
+	uploadSessions  SessionStore
 	s               Store
 	watchURLPrefix  string
 	uploadURLPrefix string
@@ -57,8 +63,8 @@ type Quotas struct {
 type ServiceConfig struct {
 	Logger             *zap.Logger
 	Store              Store
-	UploadSessionStore *sessionStore.Store
-	WatchSessionStore  *sessionStore.Store
+	UploadSessionStore SessionStore
+	WatchSessionStore  SessionStore
 	WatchURLPrefix     string
 	UploadURLPrefix    string
 	Quotas             Quotas

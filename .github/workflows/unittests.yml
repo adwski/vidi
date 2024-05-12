@@ -1,0 +1,29 @@
+name: unit tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  unittests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: install deps
+        run: go mod download
+
+      - name: run tests
+        run: |
+          go test -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov ./...
+          go tool cover -func=profile.cov

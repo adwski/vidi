@@ -33,7 +33,7 @@ func (mt *Meta) StaticMPD(baseURL string) ([]byte, error) {
 	}
 
 	// Marshall XML using patched encoding/xml
-	out, err := xml.MarshalIndent(m, " ", "")
+	out, err := xml.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("cannot marshal mpd: %w", err)
 	}

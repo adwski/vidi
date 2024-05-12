@@ -1,4 +1,3 @@
-//nolint:wrapcheck  // we use echo-style handler returns, i.e. return c.JSON(..)
 package video
 
 import (
@@ -12,7 +11,7 @@ import (
 
 func (svc *Service) UpdateVideoStatus(ctx context.Context, vid string, status model.Status) error {
 	if err := model.ValidateStatus(status); err != nil {
-		return err // passing ErrIncorrectStatusNum as is
+		return err //nolint:wrapcheck // passing ErrIncorrectStatusNum as is
 	}
 	if err := svc.s.UpdateStatus(ctx, &model.Video{
 		ID:     vid,
@@ -35,7 +34,7 @@ func (svc *Service) UpdateVideoStatusAndMeta(
 	pbMeta []byte,
 ) error {
 	if err := model.ValidateStatus(status); err != nil {
-		return err // passing ErrIncorrectStatusNum as is
+		return err //nolint:wrapcheck // passing ErrIncorrectStatusNum as is
 	}
 	if len(pbMeta) == 0 {
 		return model.ErrEmptyPlaybackMeta
@@ -61,7 +60,7 @@ func (svc *Service) UpdateVideoStatusAndMeta(
 
 func (svc *Service) GetVideosByStatus(ctx context.Context, status model.Status) ([]*model.Video, error) {
 	if err := model.ValidateStatus(status); err != nil {
-		return nil, err // passing ErrIncorrectStatusNum as is
+		return nil, err //nolint:wrapcheck // passing ErrIncorrectStatusNum as is
 	}
 	videos, err := svc.s.GetListByStatus(ctx, status)
 	if err != nil {
