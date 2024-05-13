@@ -1,7 +1,11 @@
 log:
   level: debug
 server:
-  address: ":18082"
+  http:
+    address: ":18082"
+  grpc:
+    address: ":18092"
+    svc_address: ":18093"
 api:
   prefix: /api/video
 database:

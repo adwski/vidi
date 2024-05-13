@@ -1,7 +1,7 @@
 log:
   level: debug
 videoapi:
-  endpoint: http://localhost:18082/api/video
+  endpoint: localhost:18093
   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJzdmMtQnNwMjhpcG1TSFdkSTdTSXdQMEo0QSIsIm5hbWUiOiJub3RpZmljYXRvciIsInJvbGUiOiJzZXJ2aWNlIiwiZXhwIjoxNzM2ODgwMDk0fQ.xjMV5Z_EBGch6fYM9ZSSC3W9QKjij2S0zI8HGz8wrAY"
 s3:
   prefix_upload: /upload

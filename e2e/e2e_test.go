@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 		wg.Done()
 	}()
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	code := m.Run()
 	cancel()

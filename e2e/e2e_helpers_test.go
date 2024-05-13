@@ -32,7 +32,7 @@ func userRegister(t *testing.T, user *model.UserRequest) *http.Cookie {
 	resp, body := makeCommonRequest(t, endpointUserRegister, user)
 	require.True(t, resp.IsSuccess())
 	require.Empty(t, body.Error)
-	require.Equal(t, "ok", body.Message)
+	require.Equal(t, "registration complete", body.Message)
 	return getCookieWithToken(t, resp.Cookies())
 }
 
@@ -52,7 +52,7 @@ func userLogin(t *testing.T, user *model.UserRequest) *http.Cookie {
 	resp, body := makeCommonRequest(t, endpointUserLogin, user)
 	require.True(t, resp.IsSuccess())
 	require.Empty(t, body.Error)
-	require.Equal(t, "login ok", body.Message)
+	require.Equal(t, "ok", body.Message)
 	return getCookieWithToken(t, resp.Cookies())
 }
 
@@ -266,7 +266,7 @@ func videoCreate(t *testing.T, userCookie *http.Cookie) *videohttp.VideoResponse
 	require.Empty(t, errBody.Error)
 	require.NotEmpty(t, videoBody.CreatedAt)
 	require.NotEmpty(t, videoBody.ID)
-	require.NotEmpty(t, videoBody.UploadURL)
+	require.NotEmpty(t, videoBody.UploadInfo.URL)
 
 	status, err := video.GetStatusFromName(videoBody.Status)
 	require.NoError(t, err)
