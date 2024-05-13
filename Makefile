@@ -48,9 +48,8 @@ goimports:
 lint:
 	golangci-lint run ./...
 
-.PHONY: build
-build:
-	go build -gcflags "-m" -race -o ./cmd/userapi/userapi ./cmd/userapi/*.go
+build-tui:
+	goreleaser build --debug --clean
 
 .PHONY: statictest
 statictest:
