@@ -34,3 +34,5 @@ docker/compose/config/test.xml
 # certs
 docker/compose/tls/*
 !docker/compose/tls/placeholder
+
+dist/
