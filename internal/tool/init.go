@@ -50,6 +50,19 @@ func (t *Tool) initClients(ep string) error {
 		return err
 	}
 
+	if err = t.initClientsFromRemoteCFG(rCfg); err != nil {
+		return err
+	}
+
+	// all good, persist configured endpoint
+	t.state.Endpoint = ep
+	if err = t.state.persist(); err != nil {
+		return fmt.Errorf("cannot persist state: %w", err)
+	}
+	return nil
+}
+
+func (t *Tool) initClientsFromRemoteCFG(rCfg *RemoteCFG) error {
 	// GRPC client is always spawned with tls creds
 	// We're using CA from remote config
 	cp := x509.NewCertPool()
@@ -65,13 +78,6 @@ func (t *Tool) initClients(ep string) error {
 		return fmt.Errorf("cannot create vidi connection: %w", err)
 	}
 	t.videoapi = videoapi.NewUsersideapiClient(cc)
-
-	// Persist endpoint, since no more errors can be caught
-	// until we start making actual requests
-	t.state.Endpoint = ep
-	if err = t.state.persist(); err != nil {
-		return fmt.Errorf("cannot persist state: %w", err)
-	}
 
 	t.userapi = userapi.New(&userapi.Config{
 		Endpoint: rCfg.UserAPIURL,
@@ -103,6 +109,8 @@ func (t *Tool) getRemoteConfig(ep string) (*RemoteCFG, error) {
 	rCfg.vidiCA, err = base64.StdEncoding.DecodeString(rCfg.VidiCAB64)
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode vidi ca: %w", err)
+	} else if len(rCfg.vidiCA) == 0 {
+		return nil, fmt.Errorf("vidi ca is empty")
 	}
 	t.logger.Debug("vidi ca decoded", zap.String("vidi_ca", rCfg.VidiCAB64))
 	return &rCfg, nil

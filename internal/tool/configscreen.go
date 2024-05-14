@@ -1,9 +1,6 @@
 package tool
 
 import (
-	"errors"
-	"fmt"
-	"net/url"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -37,23 +34,6 @@ func newConfigScreen() *sConfig {
 			),
 		).WithTheme(defaultHuhTheme),
 	}
-}
-
-func isURL(s string) error {
-	u, err := url.Parse(s)
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
-	}
-	if u.Scheme == "" {
-		return errors.New("invalid URL: missing scheme")
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("invalid URL scheme: %s", u.Scheme)
-	}
-	if u.Hostname() == "" {
-		return errors.New("invalid URL: missing hostname")
-	}
-	return nil
 }
 
 func (s *sConfig) init() tea.Cmd {

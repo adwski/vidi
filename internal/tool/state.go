@@ -83,10 +83,12 @@ func (s *State) activeUserUnsafe() *User {
 	return &s.Users[s.CurrentUser]
 }
 
+// noUser indicates that current user is not selected.
 func (s *State) noUser() bool {
 	return s.CurrentUser == -1
 }
 
+// noUsers indicates that state has no users.
 func (s *State) noUsers() bool {
 	return len(s.Users) == 0
 }
@@ -169,7 +171,7 @@ func (s *State) sanitize() {
 		s.CurrentUser = -1
 	}
 	// check endpoint
-	if _, err := url.Parse(s.Endpoint); err != nil {
+	if err := isURL(s.Endpoint); err != nil {
 		s.Endpoint = ""
 	}
 }
@@ -189,11 +191,31 @@ func (s *State) checkToken() error {
 	}
 	exp, err := token.Claims.GetExpirationTime()
 	if err != nil {
-		return fmt.Errorf("unable to get epiration time from token: %w", err)
+		return fmt.Errorf("unable to get expiration time from token: %w", err)
+	}
+	if exp == nil {
+		return errors.New("token has no expiration time")
 	}
 	if exp.Before(time.Now()) {
 		return fmt.Errorf("token is expired at %s", exp.Format(time.RFC3339))
 	}
 	s.Users[s.CurrentUser].TokenExpiresAt = exp.Unix()
 	return s.persist()
+}
+
+func isURL(s string) error {
+	u, err := url.Parse(s)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme == "" {
+		return errors.New("invalid URL: missing scheme")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("invalid URL scheme: %s", u.Scheme)
+	}
+	if u.Hostname() == "" {
+		return errors.New("invalid URL: missing hostname")
+	}
+	return nil
 }
