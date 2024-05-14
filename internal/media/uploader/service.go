@@ -21,8 +21,8 @@ const (
 )
 
 var (
-	contentTypeMP4 = []byte("application/x-vidi-mediapart")
-	methodPOST     = []byte("POST")
+	contentTypeVidiMediapart = []byte("application/x-vidi-mediapart")
+	methodPOST               = []byte("POST")
 )
 
 // Service is a media file uploader service. It implements fasthttp handler that
@@ -168,12 +168,12 @@ func parseUint(b []byte) (num uint) {
 
 func checkHeader(ctx *fasthttp.RequestCtx) (int, error) {
 	cType := ctx.Request.Header.ContentType()
-	if !bytes.Equal(cType, contentTypeMP4) {
+	if !bytes.Equal(cType, contentTypeVidiMediapart) {
 		return 0, errors.New("wrong content type")
 	}
 
 	cLength := ctx.Request.Header.ContentLength()
-	if cLength == 0 {
+	if cLength <= 0 {
 		return 0, errors.New("wrong or missing content length")
 	}
 	return cLength, nil

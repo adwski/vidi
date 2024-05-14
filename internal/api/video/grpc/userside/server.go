@@ -101,7 +101,14 @@ func (srv *Server) CreateVideo(ctx context.Context, req *pb.CreateVideoRequest) 
 	vide, err := srv.videoSvc.CreateVideo(ctx, usr, r)
 	if err != nil {
 		srv.logger.Error("CreateVideo failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "cannot create video")
+		switch {
+		case errors.Is(err, model.ErrZeroSize),
+			errors.Is(err, model.ErrNoParts),
+			errors.Is(err, model.ErrNoName):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "cannot create video")
+		}
 	}
 	return videoResponse(vide), nil
 }

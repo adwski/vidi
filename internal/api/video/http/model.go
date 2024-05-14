@@ -9,14 +9,18 @@ import (
 type VideoResponse struct {
 	UploadInfo *model.UploadInfo `json:"upload_info,omitempty"`
 	ID         string            `json:"id"`
+	Name       string            `json:"name"`
 	Status     string            `json:"status"`
 	CreatedAt  string            `json:"created_at"`
+	Size       uint64            `json:"size"`
 }
 
 func NewVideoResponse(v *model.Video) *VideoResponse {
 	return &VideoResponse{
 		ID:         v.ID,
 		Status:     v.Status.String(),
+		Name:       v.Name,
+		Size:       v.Size,
 		CreatedAt:  v.CreatedAt.Format(time.RFC3339),
 		UploadInfo: v.UploadInfo,
 	}

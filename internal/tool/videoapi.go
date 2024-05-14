@@ -2,7 +2,6 @@ package tool
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +11,8 @@ import (
 
 	"github.com/adwski/vidi/internal/api/video/grpc/userside/pb"
 	"github.com/adwski/vidi/internal/api/video/model"
+	"github.com/adwski/vidi/internal/file"
 	"github.com/dustin/go-humanize"
-	"github.com/minio/sha256-simd"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
@@ -152,7 +151,7 @@ func (t *Tool) checkUploadPartsState(upload *Upload) (map[uint32]*pb.VideoPart, 
 	}
 	var (
 		partsToUpload    = make(map[uint32]*pb.VideoPart)
-		partsHaveLocally = make(map[uint]Part)
+		partsHaveLocally = make(map[uint]file.Part)
 	)
 	for _, p := range upload.Parts {
 		partsHaveLocally[p.Num] = p
@@ -236,27 +235,24 @@ func (t *Tool) uploadFileNotify(name, filePath string) {
 }
 
 func (t *Tool) prepareUpload(filePath, name string) (uint64, error) {
-	size, err := getFileSize(filePath)
+	size, err := file.GetSize(filePath)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("cannot get file size: %w", err)
 	}
 	if err = t.checkQuotas(size); err != nil {
 		return 0, err
 	}
-	return size, t.prepareParts(filePath, name, size)
-}
-
-func getFileSize(filePath string) (uint64, error) {
-	f, err := os.Open(filePath)
+	parts, err := file.MakePartsFromFile(filePath, partSize, size)
 	if err != nil {
-		return 0, fmt.Errorf("unable to open file: %w", err)
+		return 0, fmt.Errorf("cannot prepare file parts: %w", err)
 	}
-	defer func() { _ = f.Close() }()
-	stat, err := f.Stat()
-	if err != nil {
-		return 0, fmt.Errorf("unable to get file stats: %w", err)
+	t.state.activeUserUnsafe().CurrentUpload = &Upload{
+		Name:     name,
+		Filename: filePath,
+		Parts:    parts,
 	}
-	return uint64(stat.Size()), nil
+	t.logger.Debug("prepared upload info", zap.Any("info", t.state.activeUserUnsafe().CurrentUpload))
+	return size, t.state.persist()
 }
 
 func (t *Tool) checkQuotas(size uint64) error {
@@ -274,7 +270,7 @@ func (t *Tool) checkQuotas(size uint64) error {
 	return nil
 }
 
-func (t *Tool) createVideo(name string, size uint64, uploadParts []Part) (*pb.VideoResponse, error) {
+func (t *Tool) createVideo(name string, size uint64, uploadParts []file.Part) (*pb.VideoResponse, error) {
 	ctx := t.getUserMDCtx()
 	parts := make([]*pb.VideoPart, 0, len(uploadParts))
 	for _, part := range uploadParts {
@@ -294,40 +290,6 @@ func (t *Tool) createVideo(name string, size uint64, uploadParts []Part) (*pb.Vi
 		return nil, fmt.Errorf("unable to create video: %w", err)
 	}
 	return cvResp, nil
-}
-
-func (t *Tool) prepareParts(filePath, name string, size uint64) error {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("unable to open file: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	partCount := size / partSize
-	if size%partSize != 0 {
-		partCount++
-	}
-	uInfo := &Upload{
-		Name:     name,
-		Filename: filePath,
-	}
-	for i := uint64(0); i < partCount; i++ {
-		h := sha256.New()
-		n, errCp := io.CopyN(h, f, partSize)
-		if errCp != nil {
-			if !errors.Is(errCp, io.EOF) || i != partCount-1 {
-				return fmt.Errorf("unable to calculate sha256 sum: %w", errCp)
-			}
-		}
-		uInfo.Parts = append(uInfo.Parts, Part{
-			Num:      uint(i),
-			Size:     uint(n),
-			Checksum: base64.StdEncoding.EncodeToString(h.Sum(nil)),
-		})
-	}
-	t.logger.Debug("prepared upload info", zap.Any("info", uInfo))
-	t.state.activeUserUnsafe().CurrentUpload = uInfo
-	return t.state.persist()
 }
 
 func (t *Tool) getUserMDCtx() context.Context {

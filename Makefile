@@ -70,10 +70,6 @@ unittests:
 cover:
 	go tool cover -html profile.cov -o coverage.html
 
-.PHONY: test
-test:
-	go test -v -count=1 ./...
-
 .PHONY: test-all
 test-all: docker-infra
 	go test -v -count=1 -cover -coverpkg=./... -coverprofile=profile.cov --tags e2e ./...

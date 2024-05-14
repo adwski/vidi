@@ -7,7 +7,7 @@ server:
     address: ":18092"
     svc_address: ":18093"
 api:
-  prefix: /api/video
+  prefix: /api
 database:
   dsn: postgres://videoapi:videoapi@localhost:5432/videoapi?sslmode=disable
 redis:

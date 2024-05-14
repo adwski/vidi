@@ -1,4 +1,4 @@
-//go:build e2e && skip
+//go:build e2e
 
 package e2e
 
@@ -25,7 +25,7 @@ func TestCreateAndDeleteVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -58,7 +58,7 @@ func TestCreateAndUploadVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -104,7 +104,7 @@ func TestWatchVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -118,10 +118,13 @@ func TestWatchVideo(t *testing.T) {
 	//-------------------------------------------------------------------------------
 	// Get watch URL
 	//-------------------------------------------------------------------------------
-	watchResponse := videoWatch(t, cookie, videosResponse[0])
-	t.Logf("watch url retrieved: %s", watchResponse.WatchURL)
+	// with generated url
+	url := videoWatchURL(t, cookie, videosResponse[0])
+	watchVideo(t, url)
 
-	watchVideo(t, watchResponse.WatchURL)
+	// with direct api link
+	mpdBody := videoWatch(t, cookie, videosResponse[0])
+	watchVideoFromMPD(t, mpdBody)
 }
 
 func TestFails(t *testing.T) {
@@ -129,7 +132,7 @@ func TestFails(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)

@@ -20,6 +20,10 @@ var (
 
 	ErrNotResumable = errors.New("upload is not resumable")
 
+	ErrNoParts  = errors.New("no parts were provided")
+	ErrZeroSize = errors.New("video size cannot be zero")
+	ErrNoName   = errors.New("video name cannot be empty")
+
 	ErrInvalidPlaybackMeta = errors.New("invalid playback meta")
 	ErrEmptyPlaybackMeta   = errors.New("empty playback meta")
 )

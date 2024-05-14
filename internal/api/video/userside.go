@@ -110,6 +110,15 @@ func (svc *Service) CreateVideo(ctx context.Context, usr *user.User, req *model.
 	var (
 		err error
 	)
+	if len(req.Parts) == 0 {
+		return nil, model.ErrNoParts
+	}
+	if req.Size == 0 {
+		return nil, model.ErrZeroSize
+	}
+	if len(req.Name) == 0 {
+		return nil, model.ErrNoName
+	}
 	newVideo := model.NewVideoNoID(usr.ID, req.Name, req.Size)
 	newVideo.UploadInfo = &model.UploadInfo{
 		Parts: req.Parts,

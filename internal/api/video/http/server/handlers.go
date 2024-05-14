@@ -106,7 +106,16 @@ func (srv *Server) createVideo(c echo.Context) error {
 	}
 	vide, err := srv.videoSvc.CreateVideo(c.Request().Context(), usr, &req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
+		switch {
+		case errors.Is(err, model.ErrZeroSize),
+			errors.Is(err, model.ErrNoParts),
+			errors.Is(err, model.ErrNoName):
+			return c.JSON(http.StatusBadRequest, &common.Response{
+				Error: err.Error(),
+			})
+		default:
+			return c.JSON(http.StatusInternalServerError, common.ResponseInternalError)
+		}
 	}
 	return c.JSON(http.StatusCreated, httpmodel.NewVideoResponse(vide))
 }

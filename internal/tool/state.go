@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/adwski/vidi/internal/file"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -54,16 +56,10 @@ type (
 	}
 
 	Upload struct {
-		ID       string `json:"id"`
-		Name     string `json:"name"`
-		Filename string `json:"filename"`
-		Parts    []Part `json:"parts"`
-	}
-
-	Part struct {
-		Checksum string `json:"checksum"`
-		Num      uint   `json:"num"`
-		Size     uint   `json:"size"`
+		ID       string      `json:"id"`
+		Name     string      `json:"name"`
+		Filename string      `json:"filename"`
+		Parts    []file.Part `json:"parts"`
 	}
 
 	QuotaParam struct {
