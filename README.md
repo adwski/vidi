@@ -1,6 +1,6 @@
 ## Vidi
 
-![Coverage](https://img.shields.io/badge/Coverage-43.8%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-47.6%25-yellow)
 
 WIP
 
