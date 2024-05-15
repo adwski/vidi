@@ -15,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/enescakir/emoji"
 	"github.com/go-resty/resty/v2"
+	"github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 )
 
@@ -150,7 +151,13 @@ func (t *Tool) RunWithProgram(ctx context.Context, wg *sync.WaitGroup, errc chan
 func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	t.initialize()
-	t.prog = tea.NewProgram(t, tea.WithContext(ctx))
+	var teaOpts = []tea.ProgramOption{tea.WithContext(ctx)}
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		// workaround for missing tty when running in CI
+		// https://github.com/charmbracelet/bubbletea/issues/761
+		teaOpts = append(teaOpts, tea.WithInput(nil))
+	}
+	t.prog = tea.NewProgram(t, teaOpts...)
 	wg.Add(1)
 	go t.listenForEvents(ctx, wg)
 	if _, err := t.prog.Run(); err != nil {
