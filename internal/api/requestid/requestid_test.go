@@ -2,17 +2,18 @@ package requestid
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
-	"testing"
 )
 
 func TestGenerator_InterceptorFunc(t *testing.T) {
 	type args struct {
-		trust bool
 		reqID string
+		trust bool
 		empty bool
 	}
 	type want struct {
@@ -76,11 +77,12 @@ func TestGenerator_InterceptorFunc(t *testing.T) {
 			require.NotNil(t, interceptor)
 
 			var ctx context.Context
-			if tt.args.reqID != "" {
+			switch {
+			case tt.args.reqID != "":
 				ctx = metadata.NewIncomingContext(context.Background(), metadata.Pairs(xRequestIDField, tt.args.reqID))
-			} else if tt.args.empty {
+			case tt.args.empty:
 				ctx = metadata.NewIncomingContext(context.Background(), metadata.Pairs(xRequestIDField, ""))
-			} else {
+			default:
 				ctx = context.Background()
 			}
 
