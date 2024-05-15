@@ -3,6 +3,7 @@ package tool
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,14 +13,32 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func TestVidit_StartStop(t *testing.T) {
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
+	require.NoError(t, err)
+	require.NotNil(t, tool)
+
+	codeCh := make(chan int)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		codeCh <- tool.RunWithContext(ctx)
+	}()
+
+	cancel()
+	assert.Equal(t, 0, <-codeCh)
+	b, err := os.ReadFile(tool.dir + logFile)
+	require.NoError(t, err)
+	t.Log(string(b))
+}
+
 func TestTool_StartNoEndpointFailedConnect(t *testing.T) {
-	tool, err := New()
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 	require.NoError(t, err)
 
-	tool.dir = t.TempDir()
 	tool.initialize()
 	require.NoError(t, tool.err)
 
@@ -61,10 +80,9 @@ const validRemoveConfig = `{
 }`
 
 func TestTool_StartNoUsers(t *testing.T) {
-	tool, err := New()
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 	require.NoError(t, err)
 
-	tool.dir = t.TempDir()
 	tool.initialize()
 	require.NoError(t, tool.err)
 
@@ -107,7 +125,7 @@ const toolStateValidActiveUser = `{
 }`
 
 func TestTool_StartValidActiveUser(t *testing.T) {
-	tool, err := New()
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +136,6 @@ func TestTool_StartValidActiveUser(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tool.dir = t.TempDir()
 	err = os.WriteFile(tool.dir+stateFile, []byte(fmt.Sprintf(toolStateValidActiveUser, srv.URL)), 0600)
 	require.NoError(t, err)
 
@@ -144,7 +161,7 @@ const toolStateValidActiveUserExpiredToken = `{
 }`
 
 func TestTool_StartValidActiveUserExpiredToken(t *testing.T) {
-	tool, err := New()
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +172,6 @@ func TestTool_StartValidActiveUserExpiredToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tool.dir = t.TempDir()
 	err = os.WriteFile(tool.dir+stateFile, []byte(fmt.Sprintf(toolStateValidActiveUserExpiredToken, srv.URL)), 0600)
 	require.NoError(t, err)
 

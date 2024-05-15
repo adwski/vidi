@@ -118,8 +118,14 @@ func (t *Tool) resumeUploadFileNotify(upload *Upload) {
 		if _, err = f.Seek(int64(n)*int64(partSize), io.SeekStart); err != nil {
 			t.fb <- fmt.Errorf("unable to seek file part %d: %w", n, err)
 		}
-		resp, rErr := t.httpC.NewRequest().
-			SetBody(io.LimitReader(f, int64(part.Size))).
+
+		// Reading body bytes fully, otherwise resty will not send Content-Length
+		b, errB := io.ReadAll(io.LimitReader(f, int64(part.Size)))
+		if errB != nil {
+			t.fb <- fmt.Errorf("unable to read file part %d: %w", n, errB)
+		}
+		resp, rErr := t.httpC.R().
+			SetBody(b).
 			SetHeader("Content-Type", "application/x-vidi-mediapart").
 			Post(uploadURL + "/" + strconv.FormatUint(uint64(part.Num), 10))
 		if rErr != nil {
@@ -216,8 +222,13 @@ func (t *Tool) uploadFileNotify(name, filePath string) {
 
 	var offset uint
 	for _, part := range upload.Parts {
-		resp, rErr := t.httpC.NewRequest().
-			SetBody(io.LimitReader(f, int64(part.Size))).
+		// Reading body bytes fully, otherwise resty will not send Content-Length
+		b, errB := io.ReadAll(io.LimitReader(f, int64(part.Size)))
+		if errB != nil {
+			t.fb <- fmt.Errorf("unable to read file part %d: %w", part.Num, errB)
+		}
+		resp, rErr := t.httpC.R().
+			SetBody(b).
 			SetHeader("Content-Type", "application/x-vidi-mediapart").
 			Post(cv.UploadUrl + "/" + strconv.FormatUint(uint64(part.Num), 10))
 		if rErr != nil {

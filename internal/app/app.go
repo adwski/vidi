@@ -172,8 +172,9 @@ func (app *App) setConfigDefaults() {
 	v.SetDefault("server.grpc.address", ":8181")
 	v.SetDefault("server.grpc.svc_address", ":8282")
 	v.SetDefault("server.grpc.reflection", false)
+	v.SetDefault("server.grpc.tls_userside_enable", false)
+	v.SetDefault("server.grpc.tls_serviceside_enable", false)
 	// TLS
-	v.SetDefault("server.tls.enable", false)
 	v.SetDefault("server.tls.cert", "")
 	v.SetDefault("server.tls.key", "")
 	// Redis

@@ -29,13 +29,13 @@ const testRCFGMissingCA = `{
 }`
 
 func TestInitStateDir(t *testing.T) {
-	dir, err := initStateDir()
+	dir, err := initStateDir(t.TempDir())
 	require.NoError(t, err)
 	require.NotEmpty(t, dir)
 }
 
 func TestTool_initialize(t *testing.T) {
-	tool, err := New()
+	tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,6 @@ func TestTool_initialize(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	tool.dir = t.TempDir()
 	tool.initialize()
 
 	require.True(t, tool.state.noEndpoint())
@@ -109,11 +108,11 @@ func TestTool_initClientsInvalidRemoteConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tool, err := New()
+			tool, err := NewWithConfig(Config{EnforceHomeDir: t.TempDir()})
 			require.NoError(t, err)
-
-			tool.dir = t.TempDir()
+			require.NotNil(t, tool)
 			tool.initialize()
+			require.NotNil(t, tool.state)
 
 			epURL := tt.args.epURL
 			if tt.args.epContent != "" {

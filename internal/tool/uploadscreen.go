@@ -2,7 +2,6 @@ package tool
 
 import (
 	"errors"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/filepicker"
@@ -58,7 +57,7 @@ type (
 	}
 )
 
-func newUploadScreen(resuming bool) *sUpload {
+func newUploadScreen(startDir string, resuming bool) *sUpload {
 	km := keyMap{
 		Up: key.NewBinding(
 			key.WithKeys("up"),
@@ -106,7 +105,7 @@ func newUploadScreen(resuming bool) *sUpload {
 	u.filePicker.AllowedTypes = allowedFileTypes
 	u.filePicker.Height = 20
 	u.filePicker.ShowPermissions = false
-	u.filePicker.CurrentDirectory, _ = os.UserHomeDir()
+	u.filePicker.CurrentDirectory = startDir
 	return u
 }
 

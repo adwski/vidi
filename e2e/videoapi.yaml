@@ -6,6 +6,10 @@ server:
   grpc:
     address: ":18092"
     svc_address: ":18093"
+    tls_userside_enable: true
+  tls:
+    key: key.pem
+    cert: cert.pem
 api:
   prefix: /api
 database:

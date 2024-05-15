@@ -3,7 +3,7 @@ log:
 server:
   http:
     address: ":18083"
-    max_body_size: 5000000
+    max_body_size: 11000000
 api:
   prefix: /upload
 redis:

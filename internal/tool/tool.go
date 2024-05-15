@@ -3,6 +3,7 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -16,6 +17,10 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
+
+const exitCodeErrAlreadyStarted = 2
+
+var ErrAlreadyStarted = errors.New("already started")
 
 type (
 	// Tool is a vidit tui client side tool.
@@ -39,6 +44,8 @@ type (
 
 		// tool's homeDir
 		dir string
+		// file picker dir
+		filePickerDir string
 
 		// flag indicating that user selected to enter credentials
 		enterCreds bool
@@ -46,6 +53,9 @@ type (
 		resumingUpload bool
 		// quit screen flag
 		quitting bool
+
+		// started flag, to enforce tool's ability to be started once.
+		started bool
 
 		// main menu transitions
 		mainFlowScreen int
@@ -58,11 +68,23 @@ type (
 		VidiCAB64   string `json:"vidi_ca"`
 		vidiCA      []byte
 	}
+
+	// Config is Tool's config. It is optional and used together with NewWithConfig()
+	Config struct {
+		EnforceHomeDir string
+		FilePickerDir  string
+		EarlyInit      bool
+	}
 )
 
 // New creates ViDi tui tool instance.
 func New() (*Tool, error) {
-	dir, err := initStateDir()
+	return NewWithConfig(Config{})
+}
+
+// NewWithConfig creates ViDi tui tool instance using specified config.
+func NewWithConfig(cfg Config) (*Tool, error) {
+	dir, err := initStateDir(cfg.EnforceHomeDir)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create state dir: %w", err)
 	}
@@ -71,12 +93,25 @@ func New() (*Tool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot configure logger: %w", err)
 	}
-	return &Tool{
+	t := &Tool{
 		logger: logger,
 		dir:    dir,
 		httpC:  resty.New(),
 		fb:     make(chan tea.Msg),
-	}, nil
+	}
+	if cfg.FilePickerDir != "" {
+		t.filePickerDir = cfg.FilePickerDir
+	} else {
+		hDir, hErr := os.UserHomeDir()
+		if hErr != nil {
+			return nil, fmt.Errorf("unable to determine user home directory: %w", hErr)
+		}
+		t.filePickerDir = hDir
+	}
+	if cfg.EarlyInit {
+		t.initialize()
+	}
+	return t, nil
 }
 
 // Run starts tool. It returns only on interrupt.
@@ -85,6 +120,10 @@ func (t *Tool) Run() int {
 }
 
 func (t *Tool) RunWithContext(ctx context.Context) int {
+	if t.started {
+		t.logger.Error("cannot start tool more than once", zap.Error(ErrAlreadyStarted))
+		return exitCodeErrAlreadyStarted
+	}
 	var code int
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
@@ -98,6 +137,15 @@ func (t *Tool) RunWithContext(ctx context.Context) int {
 	return code
 }
 
+func (t *Tool) RunWithProgram(ctx context.Context, wg *sync.WaitGroup, errc chan<- error, prog *tea.Program) {
+	if t.started {
+		errc <- ErrAlreadyStarted
+		return
+	}
+	t.prog = prog
+	t.listenForEvents(ctx, wg)
+}
+
 // run spawns tea program and world event loop.
 func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
 	defer wg.Done()
@@ -106,8 +154,10 @@ func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
 	wg.Add(1)
 	go t.listenForEvents(ctx, wg)
 	if _, err := t.prog.Run(); err != nil {
-		t.logger.Error("runtime error", zap.Error(err), zap.Stack("stack"))
-		return fmt.Errorf("runtime error: %w", err)
+		if !errors.Is(err, tea.ErrProgramKilled) { // ErrProgramKilled happens when context is canceled
+			t.logger.Debug("runtime error", zap.Error(err), zap.Stack("stack"))
+			return fmt.Errorf("runtime error: %w", err)
+		}
 	}
 	t.logger.Debug("program exited")
 	return nil
@@ -303,7 +353,7 @@ func (t *Tool) mainFlow() {
 		t.screen = newVideosScreen(t.state.activeUserUnsafe().Videos)
 	case mainFlowScreenUpload:
 		// upload screen
-		t.screen = newUploadScreen(t.resumingUpload)
+		t.screen = newUploadScreen(t.filePickerDir, t.resumingUpload)
 	default: // mainFlowScreenMainMenu
 		// main menu
 		u := t.state.activeUserUnsafe()

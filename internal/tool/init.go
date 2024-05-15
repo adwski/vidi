@@ -32,15 +32,24 @@ func (t *Tool) initialize() {
 }
 
 // initStateDir creates state dir if it not exists.
-func initStateDir() (string, error) {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot identify home dir: %w", err)
+func initStateDir(enforceHomedir string) (string, error) {
+	var (
+		dir string
+		err error
+	)
+	if enforceHomedir == "" {
+		dir, err = os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot identify home dir: %w", err)
+		}
+		dir += stateDir
+	} else {
+		dir = enforceHomedir
 	}
-	if err = os.MkdirAll(dir+stateDir, stateDirPerm); err != nil {
+	if err = os.MkdirAll(dir, stateDirPerm); err != nil {
 		return "", fmt.Errorf("cannot create state directory: %w", err)
 	}
-	return dir + stateDir, nil
+	return dir, nil
 }
 
 // initClients initializes video api and user api clients using provided ViDi endpoint.

@@ -35,4 +35,7 @@ docker/compose/config/test.xml
 docker/compose/tls/*
 !docker/compose/tls/placeholder
 
+e2e/cert.pem
+e2e/key.pem
+
 dist/

@@ -95,9 +95,10 @@ func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) 
 	}
 	var (
 		tlsKeyPath, tlsCertPath string
-		tlsEnable               = v.GetBool("server.tls.enable")
+		grpcTLSEnableUsr        = v.GetBool("server.grpc.tls_userside_enable")
+		grpcTLSEnableSvc        = v.GetBool("server.grpc.tls_serviceside_enable")
 	)
-	if tlsEnable {
+	if grpcTLSEnableSvc || grpcTLSEnableUsr {
 		tlsCertPath = v.GetString("server.tls.cert")
 		tlsKeyPath = v.GetString("server.tls.key")
 	}
@@ -112,19 +113,23 @@ func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) 
 	// Spawn application entities
 	// --------------------------------------
 	// tls config
-	if tlsEnable {
+	if grpcTLSEnableSvc || grpcTLSEnableUsr {
 		cert, err := tls.LoadX509KeyPair(tlsCertPath, tlsKeyPath)
 		if err != nil {
 			logger.Error("cannot create tls config", zap.Error(err))
 			return nil, nil, false
 		}
-		gUserSrvCfg.TLSConfig = &tls.Config{
-			MinVersion:   minTLSVersion,
-			Certificates: []tls.Certificate{cert},
+		if grpcTLSEnableUsr {
+			gUserSrvCfg.TLSConfig = &tls.Config{
+				MinVersion:   minTLSVersion,
+				Certificates: []tls.Certificate{cert},
+			}
 		}
-		gServiceSrvCfg.TLSConfig = &tls.Config{
-			MinVersion:   minTLSVersion,
-			Certificates: []tls.Certificate{cert},
+		if grpcTLSEnableSvc {
+			gServiceSrvCfg.TLSConfig = &tls.Config{
+				MinVersion:   minTLSVersion,
+				Certificates: []tls.Certificate{cert},
+			}
 		}
 	}
 
