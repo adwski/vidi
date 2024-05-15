@@ -9,7 +9,6 @@ package requestid
 
 import (
 	"context"
-
 	"github.com/gofrs/uuid/v5"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -24,17 +23,7 @@ const (
 	xRequestIDField = "x-request-id"
 
 	ctxKeyXRequestID ctxKey = iota
-
-	cannotGenerateXRequestID = "#cannot generate request ID#"
 )
-
-// GetRequestIDFromContext retrieves request ID from request context.
-func GetRequestIDFromContext(ctx context.Context) string {
-	if reqID, ok := ctx.Value(ctxKeyXRequestID).(string); ok {
-		return reqID
-	}
-	return ""
-}
 
 // Generator is request-id injector. It can work as GRPC unary interceptor
 // or just provide generation func to be used externally.
@@ -53,23 +42,12 @@ func New(logger *zap.Logger, trustRequestID bool) *Generator {
 	}
 }
 
-func (g *Generator) GenFunc() func() string {
-	return func() string {
-		uuidV4, err := g.gen.NewV4()
-		if err != nil {
-			g.logger.Error("cannot generate request id", zap.Error(err))
-			return cannotGenerateXRequestID
-		}
-		return uuidV4.String()
-	}
-}
-
 // InterceptorFunc returns UnaryServerInterceptor func that can be used by GRPC server.
 func (g *Generator) InterceptorFunc() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},
-		info *grpc.UnaryServerInfo,
+		_ *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
 		var newCtx context.Context
@@ -100,7 +78,7 @@ func getXRequestIDFromMetadata(ctx context.Context) (string, bool) {
 		return "", false
 	}
 	reqID := md.Get(xRequestIDField)
-	if len(reqID) == 0 {
+	if len(reqID) == 0 || len(reqID[0]) == 0 {
 		return "", false
 	}
 	return reqID[0], true
