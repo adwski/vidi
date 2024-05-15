@@ -81,8 +81,12 @@ func New() (*Tool, error) {
 
 // Run starts tool. It returns only on interrupt.
 func (t *Tool) Run() int {
+	return t.RunWithContext(context.Background())
+}
+
+func (t *Tool) RunWithContext(ctx context.Context) int {
 	var code int
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -98,7 +102,7 @@ func (t *Tool) Run() int {
 func (t *Tool) run(ctx context.Context, wg *sync.WaitGroup) error {
 	defer wg.Done()
 	t.initialize()
-	t.prog = tea.NewProgram(t)
+	t.prog = tea.NewProgram(t, tea.WithContext(ctx))
 	wg.Add(1)
 	go t.listenForEvents(ctx, wg)
 	if _, err := t.prog.Run(); err != nil {
@@ -250,6 +254,7 @@ func (t *Tool) cycleViews() {
 	switch {
 	case t.err != nil:
 		// in case of error, show it to user
+		t.logger.Debug("error occurred, switching to err screen", zap.Error(t.err))
 		t.screen = newErrorScreen(t.err)
 	case t.state.noEndpoint(), t.noClients():
 		// invalid endpoint, should configure it again

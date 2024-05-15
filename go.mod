@@ -6,9 +6,10 @@ require (
 	github.com/Eyevinn/dash-mpd v0.11.1
 	github.com/Eyevinn/mp4ff v0.44.0
 	github.com/charmbracelet/bubbles v0.18.0
-	github.com/charmbracelet/bubbletea v0.26.1
+	github.com/charmbracelet/bubbletea v0.26.2
 	github.com/charmbracelet/huh v0.3.0
 	github.com/charmbracelet/lipgloss v0.10.0
+	github.com/charmbracelet/x/exp/teatest v0.0.0-20240514163027-fb066ab7c504
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/dustin/go-humanize v1.0.1
@@ -24,6 +25,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/labstack/echo-jwt/v4 v4.2.0
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/labstack/gommon v0.4.2
 	github.com/minio/minio-go/v7 v7.0.70
 	github.com/minio/sha256-simd v1.0.1
 	github.com/redis/go-redis/v9 v9.5.1
@@ -43,10 +45,12 @@ require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/aymanbagabas/go-udiff v0.2.0 // indirect
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
+	github.com/charmbracelet/x/exp/golden v0.0.0-20240222125807-0344fda748f8 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -66,7 +70,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
