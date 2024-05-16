@@ -3,6 +3,7 @@ package logging
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"go.uber.org/zap"
@@ -35,8 +36,17 @@ func GetZapLoggerDefaultLevel() *zap.Logger {
 	return zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(getEncoderConfig()), os.Stdout, defaultLogLevel))
 }
 
-func GetZapLoggerConsole() *zap.Logger {
-	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(getEncoderConfig()), os.Stdout, defaultLogLevel))
+type fakeWSyncer struct {
+	io.Writer
+}
+
+func (fw *fakeWSyncer) Sync() error {
+	return nil
+}
+
+func GetZapLoggerWriter(w io.Writer) *zap.Logger {
+	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(getEncoderConfig()),
+		&fakeWSyncer{Writer: w}, defaultLogLevel))
 }
 
 func GetZapLoggerFile(path string) (*zap.Logger, error) {

@@ -7,11 +7,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func TestGetZapLoggerConsole(t *testing.T) {
-	l := GetZapLoggerConsole()
-	l.Sugar().Desugar()
-}
-
 func TestGetZapLoggerDefaultLevel(t *testing.T) {
 	l := GetZapLoggerDefaultLevel()
 	l.Sugar().Desugar()

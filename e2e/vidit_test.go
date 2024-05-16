@@ -1,9 +1,12 @@
+//go:build e2e
+
 package e2e
 
 import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/tool"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
@@ -168,7 +172,7 @@ func TestVidit_MainFlow(t *testing.T) {
 
 	// --------------------------------------------------------------------------------------
 	// Copy mp4 file, so it would be easier to find it in file picker
-	fileName := fmt.Sprintf("testvideo%s.mp4", random.String(5, "asdzxcqwe"))
+	fileName := fmt.Sprintf("testvideo%s.mp4", random.String(5))
 	require.NoError(t, copyFile(homeDir+"/"+fileName, "../testfiles/test_seq_h264_high_uhd.mp4"),
 		"copy test video file to home dir")
 
@@ -212,7 +216,7 @@ func TestVidit_MainFlow(t *testing.T) {
 		return bytes.Contains(bts, []byte("Enter Name of the video"))
 	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
 
-	videoName := fmt.Sprintf("test video %s", random.String(5, "asdzxcqwe123"))
+	videoName := fmt.Sprintf("test video %s", random.String(5))
 	// enter name
 	tm.Send(tea.KeyMsg{
 		Type: tea.KeyDown,
@@ -241,7 +245,7 @@ func TestVidit_MainFlow(t *testing.T) {
 	// Here should eventually be upload success message
 	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
 		return bytes.Contains(bts, []byte("Upload completed successfully! Press any key to continue..."))
-	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
+	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*5))
 
 	tm.Send(tea.KeyMsg{
 		Type: tea.KeyEnter,
@@ -255,7 +259,7 @@ func TestVidit_MainFlow(t *testing.T) {
 	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
 	t.Log("main menu screen showed")
 
-	time.Sleep(time.Second * 15)
+	time.Sleep(time.Second * 10)
 	tm.Send(tea.KeyMsg{
 		Type: tea.KeyEnter,
 	})
@@ -626,6 +630,159 @@ func TestVidit_LoginExistingUser(t *testing.T) {
 		return bytes.Contains(bts, []byte("Welcome to Vidi terminal tool"))
 	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
 	t.Log("main menu screen showed")
+
+	// --------------------------------------------------------------------------------------
+	// Cleanup
+	cancel()
+	wg.Wait()
+
+	b, err = os.ReadFile(homeDir + "/log.json")
+	require.NoError(t, err)
+	t.Log(string(b))
+}
+
+func TestVidit_ResumeUpload(t *testing.T) {
+	// --------------------------------------------------------------------------------------
+	// Prepare remote config and serve it
+	b, err := os.ReadFile("cert.pem")
+	require.NoError(t, err)
+
+	remoteConfig := fmt.Sprintf(testRCFG, base64.StdEncoding.EncodeToString(b))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, errW := w.Write([]byte(remoteConfig))
+		require.NoError(t, errW)
+	}))
+	defer srv.Close()
+
+	// --------------------------------------------------------------------------------------
+	// Prepare created but not uploaded video
+	cookie := userLogin(t, &model.UserRequest{
+		Username: VIDITe2eUser,
+		Password: VIDITe2ePassword,
+	})
+
+	video := videoCreate(t, cookie)
+	_, parts := getSizeAndMakeParts(t)
+
+	state := &tool.State{
+		Endpoint:    srv.URL,
+		CurrentUser: 0,
+		Users: []tool.User{
+			{
+				Name:  VIDITe2eUser,
+				Token: cookie.Value,
+				CurrentUpload: &tool.Upload{
+					ID:       video.ID,
+					Name:     video.Name,
+					Filename: testFilePath,
+					Parts:    parts,
+				},
+			},
+		},
+	}
+
+	// --------------------------------------------------------------------------------------
+	// Init tool
+	homeDir := t.TempDir()
+	stateB, err := json.Marshal(state)
+	require.NoError(t, err)
+	err = os.WriteFile(homeDir+"/state.json", stateB, 0600)
+	require.NoError(t, err)
+
+	vidit, err := tool.NewWithConfig(tool.Config{
+		EnforceHomeDir: homeDir,
+		FilePickerDir:  homeDir,
+		EarlyInit:      true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, vidit)
+
+	// --------------------------------------------------------------------------------------
+	// Create teatest program
+	tm := teatest.NewTestModel(t, vidit, teatest.WithInitialTermSize(300, 100))
+
+	// --------------------------------------------------------------------------------------
+	// Run tool
+	errc := make(chan error)
+	wg := &sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wg.Add(1)
+	go vidit.RunWithProgram(ctx, wg, errc, tm.GetProgram())
+	go func() {
+		for {
+			select {
+			case errR := <-errc:
+				require.NoError(t, errR)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// --------------------------------------------------------------------------------------
+	// Here should be main screen
+	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+		return bytes.Contains(bts, []byte("Welcome to Vidi terminal tool")) &&
+			bytes.Contains(bts, []byte("Resume Current Upload"))
+	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
+	t.Log("main menu screen with resume option showed")
+
+	// select resume
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyDown,
+	})
+	time.Sleep(time.Millisecond * 200)
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyDown,
+	})
+	time.Sleep(time.Millisecond * 200)
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyDown,
+	})
+	time.Sleep(time.Millisecond * 200)
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyDown,
+	})
+	time.Sleep(time.Millisecond * 200)
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyEnter,
+	})
+	time.Sleep(time.Millisecond * 200)
+
+	// --------------------------------------------------------------------------------------
+	// Here should eventually be upload success message
+	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+		return bytes.Contains(bts, []byte("Upload completed successfully! Press any key to continue..."))
+	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*5))
+
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyEnter,
+	})
+	time.Sleep(time.Millisecond * 200)
+
+	// --------------------------------------------------------------------------------------
+	// Here should be main screen
+	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+		return bytes.Contains(bts, []byte("Welcome to Vidi terminal tool"))
+	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*3))
+	t.Log("main menu screen showed")
+
+	time.Sleep(time.Second * 10)
+	tm.Send(tea.KeyMsg{
+		Type: tea.KeyEnter,
+	})
+	time.Sleep(time.Millisecond * 200)
+
+	// --------------------------------------------------------------------------------------
+	// Here should be videos screen
+	teatest.WaitFor(t, tm.Output(), func(bts []byte) bool {
+		return bytes.Contains(bts, []byte(video.Name)) && bytes.Contains(bts, []byte("ready"))
+	}, teatest.WithCheckInterval(time.Millisecond*100), teatest.WithDuration(time.Second*1))
+	t.Log("videos screen showed and uploaded video is ready")
 
 	// --------------------------------------------------------------------------------------
 	// Cleanup

@@ -3,7 +3,6 @@ package mp4
 import (
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
@@ -16,10 +15,7 @@ const (
 )
 
 // Dump prints out codec info and segmentation patter for mp4 file.
-func Dump(path string, segDuration time.Duration) {
-	dump(os.Stdout, path, segDuration)
-}
-func dump(w io.Writer, path string, segDuration time.Duration) {
+func Dump(w io.Writer, path string, segDuration time.Duration) {
 	segmentDuration := segDuration
 	if segDuration < defaultSegmentDuration {
 		segmentDuration = defaultSegmentDuration
@@ -30,7 +26,7 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 		return
 	}
 
-	printW(w, "ftyp: %s\n", mF.Ftyp)
+	printW(w, "ftyp: %s\n", mF.Ftyp.CompatibleBrands())
 	printW(w, "segmented: %v\n", mF.IsFragmented())
 
 	vTrack, timescale, totalDuration, errV := segmentation.GetFirstVideoTrackParams(mF)

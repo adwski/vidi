@@ -1,7 +1,7 @@
-package vidictl
+package cli
 
 import (
-	"fmt"
+	"io"
 	"time"
 
 	"github.com/adwski/vidi/internal/api/user/auth"
@@ -23,12 +23,12 @@ var createSvcTokenCmd = &cobra.Command{
 		name := cmd.Flag("svcname").Value.String()
 		secret := cmd.Flag("jwtsecret").Value.String()
 		expiration := cast.ToDuration(cmd.Flag("expiration").Value.String())
-		createServiceToken(name, secret, expiration)
+		createServiceToken(cmd.OutOrStdout(), name, secret, expiration)
 	},
 }
 
-func createServiceToken(name, secret string, expiration time.Duration) {
-	logger := logging.GetZapLoggerConsole()
+func createServiceToken(w io.Writer, name, secret string, expiration time.Duration) {
+	logger := logging.GetZapLoggerWriter(w)
 
 	au, err := auth.NewAuth(&auth.Config{
 		Secret:     secret,
@@ -44,5 +44,7 @@ func createServiceToken(name, secret string, expiration time.Duration) {
 		logger.Error("cannot create token", zap.Error(errT))
 		return
 	}
-	fmt.Println(token)
+	if _, err = w.Write([]byte(token)); err != nil {
+		logger.Error("cannot write token", zap.Error(err))
+	}
 }

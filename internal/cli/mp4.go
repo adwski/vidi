@@ -1,7 +1,8 @@
-package vidictl
+package cli
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 
@@ -26,7 +27,7 @@ var segmentCmd = &cobra.Command{
 		fileName := cmd.Flag("file").Value.String()
 		outdir := cmd.Flag("outdir").Value.String()
 		segduration := cast.ToDuration(cmd.Flag("segduration").Value.String())
-		segmentFile(fileName, outdir, segduration)
+		segmentFile(cmd.OutOrStdout(), fileName, outdir, segduration)
 	},
 }
 
@@ -36,24 +37,20 @@ var dumpCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fileName := cmd.Flag("file").Value.String()
 		segDuration := cast.ToDuration(cmd.Flag("segduration").Value.String())
-		mp4.Dump(fileName, segDuration)
+		mp4.Dump(cmd.OutOrStdout(), fileName, segDuration)
 	},
 }
 
-func segmentFile(fileName, outdir string, segDuration time.Duration) {
+func segmentFile(w io.Writer, fileName, outdir string, segDuration time.Duration) {
 	var (
-		logger     = logging.GetZapLoggerConsole()
+		logger     = logging.GetZapLoggerWriter(w)
 		mediaStore = file.NewStore("", outdir)
-		proc, err  = processor.New(&processor.Config{
+		proc, _    = processor.New(&processor.Config{ // will never produce error in local mode
 			Logger:          logger,
 			Store:           mediaStore,
 			SegmentDuration: segDuration,
 		})
 	)
-	if err != nil {
-		logger.Error("cannot init processor", zap.Error(err))
-		return
-	}
 	f, err := os.Open(fileName)
 	if err != nil {
 		logger.Error("cannot open file", zap.Error(err))

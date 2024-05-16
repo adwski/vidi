@@ -268,22 +268,14 @@ func videoGetAll(t *testing.T, userCookie *http.Cookie) []*videohttp.VideoRespon
 func videoCreate(t *testing.T, userCookie *http.Cookie) *videohttp.VideoResponse {
 	t.Helper()
 
-	// get size
-	size, err := file.GetSize(testFilePath)
-	require.NoError(t, err)
-	require.Greater(t, size, uint64(0))
-
-	// make parts with checksums
-	parts, err := file.MakePartsFromFile(testFilePath, partSize, size)
-	require.NoError(t, err)
-	require.Greater(t, len(parts), 0)
+	size, parts := getSizeAndMakeParts(t)
 
 	var (
 		respBody videohttp.VideoResponse
 		reqBody  video.CreateRequest
 		errBody  common.Response
 	)
-	reqBody.Name = "test"
+	reqBody.Name = "testvid"
 	reqBody.Size = size
 	for _, part := range parts {
 		reqBody.Parts = append(reqBody.Parts, &video.Part{
@@ -312,9 +304,8 @@ func videoCreate(t *testing.T, userCookie *http.Cookie) *videohttp.VideoResponse
 	return &respBody
 }
 
-func videoUpload(t *testing.T, url string) {
+func getSizeAndMakeParts(t *testing.T) (uint64, []file.Part) {
 	t.Helper()
-
 	// get size
 	size, err := file.GetSize(testFilePath)
 	require.NoError(t, err)
@@ -324,6 +315,14 @@ func videoUpload(t *testing.T, url string) {
 	parts, err := file.MakePartsFromFile(testFilePath, partSize, size)
 	require.NoError(t, err)
 	require.Greater(t, len(parts), 0)
+
+	return size, parts
+}
+
+func videoUpload(t *testing.T, url string) {
+	t.Helper()
+
+	_, parts := getSizeAndMakeParts(t)
 
 	// upload parts
 	f, err := os.Open(testFilePath)

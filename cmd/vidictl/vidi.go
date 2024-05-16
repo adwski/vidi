@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/adwski/vidi/internal/app/vidictl"
+	"github.com/adwski/vidi/internal/cli"
 )
 
 func main() {
-	os.Exit(vidictl.Execute())
+	os.Exit(cli.Execute())
 }

@@ -1,4 +1,4 @@
-package vidictl
+package cli
 
 import (
 	"fmt"

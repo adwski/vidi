@@ -57,6 +57,15 @@ type Config struct {
 }
 
 func New(cfg *Config) (*Processor, error) {
+	logger := cfg.Logger.With(zap.String("component", "processor"))
+	if cfg.VideoAPIEndpoint == "" {
+		logger.Debug("running in local mode")
+		return &Processor{
+			logger:          cfg.Logger.With(zap.String("component", "processor")),
+			st:              cfg.Store,
+			segmentDuration: cfg.SegmentDuration,
+		}, nil
+	}
 	cc, err := grpc.Dial(cfg.VideoAPIEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("cannot create vidi connection: %w", err)
