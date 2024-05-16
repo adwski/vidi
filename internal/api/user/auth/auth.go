@@ -89,7 +89,7 @@ func (a *Auth) parseToken(signedToken string) (*Claims, error) {
 		return a.secret, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse token from session cookie: %w", err)
+		return nil, fmt.Errorf("cannot parse token: %w", err)
 	}
 	if !token.Valid {
 		return nil, errors.New("token is not valid")
