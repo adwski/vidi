@@ -1,3 +1,4 @@
+// Package uploader contains app that handles media part uploads.
 package uploader
 
 import (
@@ -26,8 +27,11 @@ var (
 )
 
 // Service is a media file uploader service. It implements fasthttp handler that
-// reads uploaded file and stores it in media store.
+// reads uploaded part and stores it in media store.
 // Every request is also checked for valid "upload"-session.
+//
+// After each successful part upload, uploader calculates sha256 checksum
+// and asynchronously notifies videoapi.
 type Service struct {
 	logger       *zap.Logger
 	sessS        *sessionStore.Store

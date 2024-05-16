@@ -1,3 +1,6 @@
+// Package event defines generic event that
+// sent by processor and uploader to notify videoapi
+// about video object changes.
 package event
 
 const (

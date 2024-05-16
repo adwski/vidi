@@ -6,6 +6,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// GetEchoWithDefaultMiddleware returns configured echo middleware
+// to be used together with http servers.
 func GetEchoWithDefaultMiddleware() *echo.Echo {
 	e := echo.New()
 

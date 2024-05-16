@@ -43,6 +43,10 @@ func init() {
 	VIDITe2eUser = VIDITe2eUserTmpl + strconv.Itoa(int(time.Now().Unix()))
 }
 
+// TestVidit_MainFlow tests main vidit functions.
+// In needs db, redis and s3 containers running.
+// Only TestVidit_MainFlow could be executed individually with go test -run,
+// remaining tests in this file rely on side effects of TestVidit_MainFlow.
 func TestVidit_MainFlow(t *testing.T) {
 	// --------------------------------------------------------------------------------------
 	// Prepare remote config and serve it

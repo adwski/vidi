@@ -1,5 +1,6 @@
 package model
 
+// Prepared http api common responses.
 var (
 	ResponseUnauthorized = &Response{
 		Error: "unauthorized",
@@ -24,6 +25,7 @@ var (
 	}
 )
 
+// Response is a common response struct that is used by APIs.
 type Response struct {
 	Message string `json:"msg,omitempty"`
 	Error   string `json:"error,omitempty"`

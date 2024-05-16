@@ -1,3 +1,40 @@
+// Package tool contains TUI client that can be used together with ViDi.
+// It supports most of user-operations (excluding video watch).
+//
+// The tool (called 'vidit') is build using bubbletea ecosystem and
+// has corresponding design patterns.
+//
+// Vidit consists of bubbletea program and number of screens, each of them
+// responsible for displaying particular data and interacting
+// with user about this data if necessary (e.g. menu screen, upload screen).
+//
+// At each particular time only one screen is active, and this is
+// determined by vidit's state and user input (e.g. Vidit has no initial
+// config and user should provide it).
+//
+// Bubbletea message flow is redirected to the active screen which is
+// responsible for reacting to messages and rendering info using
+// same bubbletea Update()-View() pattern.
+//
+// Vidit keeps internal state in order to track active user,
+// login info, upload info, endpoint configuration. This allows
+// to auto login during startup and resume interrupted upload.
+//
+// Each screen internally also has its own state which in most cases
+// CANNOT BE REVERTED (main example is huh forms), which is why
+// when vidit changes screens it instantiates new one and not reuses
+// exising.
+//
+// During message processing screen may send outerControl message
+// back to vidit Update() method. And this means vidit should decide
+// what to do next (usual case is that user finished interacting with
+// current screen, and it should be changed to something else).
+//
+// Vidit also has 'world-event' channel that is 'external world to active screen'
+// communication channel. This channel is used when screen should track something
+// happening asynchronously (independent from screen itself). This is mainly
+// used for upload progress.
+//
 //nolint:godot // false positives
 package tool
 
@@ -25,7 +62,11 @@ var ErrAlreadyStarted = errors.New("already started")
 
 type (
 	// Tool is a vidit tui client side tool.
-	Tool struct {
+	// It has clients to interact with APIs,
+	// screens to display info to user and
+	// react to user input, and state that is
+	// persisted between restarts.
+	Tool struct { // a.k.a 'Vidit'
 		userapi  *userapi.Client
 		videoapi videoapi.UsersideapiClient
 		httpC    *resty.Client
@@ -84,6 +125,8 @@ func New() (*Tool, error) {
 }
 
 // NewWithConfig creates ViDi tui tool instance using specified config.
+// Logger is instantiated with file output with hardcoded debug level.
+// It could also run early initialization if specified (mainly used by tests).
 func NewWithConfig(cfg Config) (*Tool, error) {
 	dir, err := initStateDir(cfg.EnforceHomeDir)
 	if err != nil {
@@ -257,6 +300,7 @@ func (t *Tool) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			t.resumingUpload = true
 			t.mainFlowScreen = mainFlowScreenUpload
 			// Spawn resume upload goroutine, it will produce world events.
+			// TODO Should add context (at the moment not so obvious where to take it from)
 			go t.resumeUploadFileNotify(t.state.activeUserUnsafe().CurrentUpload)
 
 		default:
@@ -377,7 +421,7 @@ const (
 
 type (
 	// screen is responsible for rendering set of elements
-	// for particular purpose, i.e 'main menu screen' or 'new user screen'.
+	// for a particular purpose, i.e 'main menu screen' or 'new user screen'.
 	screen interface {
 		init() tea.Cmd
 		update(msg tea.Msg) (tea.Cmd, *outerControl)
@@ -385,10 +429,10 @@ type (
 		name() string
 	}
 
-	// outerControl is control structure returned by screen.
+	// outerControl is a control structure returned by screen.
 	// It contains data necessary to continue screen cycle.
 	outerControl struct {
-		data interface{}
+		data interface{} // TODO may be just 'outerControl any' ?
 	}
 )
 

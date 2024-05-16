@@ -1,3 +1,6 @@
+// Package cli contains cli tool that has
+// - helpful mp4 operations like dumping and segmenting mp4 file
+// - video api service token creation (which can be used later in apps config).
 package cli
 
 import (

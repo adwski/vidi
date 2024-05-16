@@ -32,6 +32,13 @@ type MediaStore interface {
 	Get(ctx context.Context, name string) (io.ReadSeekCloser, int64, error)
 }
 
+// Processor is worker-style app that polls videoapi for uploaded videos,
+// processes them and notifies videoapi about results.
+//
+// Processing includes
+// - segmentation
+// - MPD generation
+// Segments and static MPD are stored in MediaStore (s3).
 type Processor struct {
 	logger           *zap.Logger
 	notificator      *notificator.Notificator
@@ -170,7 +177,7 @@ func (p *Processor) processVideo(ctx context.Context, v *pb.Video) ([]byte, erro
 	case defaultPartSize*uint64(len(v.Parts)-1) > v.Size || v.Size > defaultPartSize*uint64(len(v.Parts)):
 		return nil, fmt.Errorf("incorrect parts amount(%d) for video size(%d)", len(v.Parts), v.Size)
 	}
-	mr := NewMediaReader(
+	mr := newMediaReader(
 		p.st,
 		fmt.Sprintf("%s/%s", p.inputPathPrefix, v.Location),
 		uint(len(v.Parts)),

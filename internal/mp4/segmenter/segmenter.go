@@ -15,7 +15,7 @@ import (
 
 type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) error
 
-// Segmenter can segment progressive mp4 according to predefined segment duration.
+// Segmenter segments progressive mp4 according to predefined segment duration.
 // Resulting segments are passed to boxStoreFunc, and it is up to user to define how to store them.
 //
 // Segmentation flow:
@@ -25,6 +25,9 @@ type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) erro
 // 4) Create data segments for each supported track
 //
 // This flow uses high-level functions, implemented in segmentation package.
+//
+// Configured segment duration should be treated like 'preference'.
+// Segmenter can increase it if necessary in order to make segments with equal sizes.
 //
 // Tracks get new numbers since they will be in separate files.
 // For example, if input file has video track with ID 0 and audio with ID 1,

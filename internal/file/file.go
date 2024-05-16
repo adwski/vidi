@@ -1,3 +1,4 @@
+// Package file provides helpers that are used during video file upload.
 package file
 
 import (
@@ -16,6 +17,13 @@ type Part struct {
 	Size     uint   `json:"size"`
 }
 
+// MakePartsFromFile splits file to parts. It returns slice of parts with fixed size
+// (but last part most probably will have less size) and calculated sha256 checksums.
+//
+// []Part actually just represent points in file, and later actual bytes are
+// anyway read from source file using offsets.
+//
+// Main purpose of []Part is that it goes directly into Video object (which is sent to videoapi).
 func MakePartsFromFile(filePath string, partSize, size uint64) ([]Part, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -45,6 +53,7 @@ func MakePartsFromFile(filePath string, partSize, size uint64) ([]Part, error) {
 	return parts, nil
 }
 
+// GetSize opens file and returns its size.
 func GetSize(filePath string) (uint64, error) {
 	f, err := os.Open(filePath)
 	if err != nil {

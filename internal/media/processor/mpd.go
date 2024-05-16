@@ -56,14 +56,6 @@ func (p *Processor) generatePlaybackMeta(
 	}, nil
 }
 
-/*
-	b, err := metaCfg.StaticMPD()
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate MPD: %w", err)
-	}
-	return b, nil
-*/
-
 func getMimeTypeFromMP4TrackHandlerType(handlerType string) (string, error) {
 	switch handlerType {
 	case "soun":

@@ -1,3 +1,5 @@
+// Package meta contains playback metadata definition
+// and static MPD generator.
 package meta
 
 import (

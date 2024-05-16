@@ -14,7 +14,7 @@ const (
 	maxOpenReaders = 10
 )
 
-// MediaReader is an uploaded media file parts reader.
+// mediaReader is an uploaded media file parts reader.
 // It abstracts multiple io.ReadSeekClosers as one,
 // so it can be used together with lazy read mode in mp4ff.
 //
@@ -29,19 +29,19 @@ const (
 // and routes Read/Seek call to reader with a particular number.
 //
 // If desired amount of data exceeds current reader's boundary
-// MediaReader switches to next reader in order until data is fully read.
+// mediaReader switches to next reader in order until data is fully read.
 //
-// To save memory and reduce number of open connections MediaReader
+// To save memory and reduce number of open connections mediaReader
 // only keeps last 'maxOpenReaders' readers open. If amount of readers
 // is more than maxOpenReaders, several least recently used readers
 // are closed in order to satisfy condition. Closed reader can be
 // reopened just the same as if it was never used before.
 //
 // If error is occurred in any of the stages, Read/Seek will always
-// return last error, and MediaReader must be closed.
+// return last error, and mediaReader must be closed.
 //
 // Current implementation is not thread-safe and should be used by only one goroutine.
-type MediaReader struct {
+type mediaReader struct {
 	traceLogger *zap.Logger
 	store       MediaStore
 	readers     map[uint64]io.ReadSeekCloser
@@ -54,8 +54,8 @@ type MediaReader struct {
 	pos         uint64
 }
 
-func NewMediaReader(ms MediaStore, path string, parts uint, totalSize, partSize uint64) *MediaReader {
-	return &MediaReader{
+func newMediaReader(ms MediaStore, path string, parts uint, totalSize, partSize uint64) *mediaReader {
+	return &mediaReader{
 		store:     ms,
 		parts:     parts,
 		s3ath:     path,
@@ -66,7 +66,7 @@ func NewMediaReader(ms MediaStore, path string, parts uint, totalSize, partSize 
 	}
 }
 
-func (mr *MediaReader) Read(b []byte) (int, error) {
+func (mr *mediaReader) Read(b []byte) (int, error) {
 	if mr.traceLogger != nil {
 		mr.traceLogger.Debug("read call", zap.Int("len", len(b)))
 	}
@@ -157,7 +157,7 @@ func (mr *MediaReader) Read(b []byte) (int, error) {
 	}
 }
 
-func (mr *MediaReader) Seek(offset int64, whence int) (int64, error) {
+func (mr *mediaReader) Seek(offset int64, whence int) (int64, error) {
 	if mr.traceLogger != nil {
 		mr.traceLogger.Debug("seek call",
 			zap.Uint64("pos", mr.pos),
@@ -222,7 +222,7 @@ func (mr *MediaReader) Seek(offset int64, whence int) (int64, error) {
 	return int64(mr.pos), nil
 }
 
-func (mr *MediaReader) Close() error {
+func (mr *mediaReader) Close() error {
 	var err error
 	for _, rc := range mr.readers {
 		if rErr := rc.Close(); rErr != nil {
@@ -234,7 +234,7 @@ func (mr *MediaReader) Close() error {
 	return err
 }
 
-func (mr *MediaReader) ensureReaderIsOpen(partNum uint64) error {
+func (mr *mediaReader) ensureReaderIsOpen(partNum uint64) error {
 	if _, ok := mr.readers[partNum]; !ok {
 		// spawn reader if it not exists
 		var artifactName = fmt.Sprintf("%s/%d", mr.s3ath, partNum)
@@ -249,7 +249,7 @@ func (mr *MediaReader) ensureReaderIsOpen(partNum uint64) error {
 	return nil
 }
 
-func (mr *MediaReader) recycleReader(partNum uint64) error {
+func (mr *mediaReader) recycleReader(partNum uint64) error {
 	err := mr.readers[partNum].Close()
 	delete(mr.readers, partNum)
 	delete(mr.readersTS, partNum)
@@ -259,7 +259,7 @@ func (mr *MediaReader) recycleReader(partNum uint64) error {
 	return nil
 }
 
-func (mr *MediaReader) gc() {
+func (mr *mediaReader) gc() {
 	for len(mr.readers) > maxOpenReaders {
 		// sweep
 		var (

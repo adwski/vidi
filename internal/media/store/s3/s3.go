@@ -3,17 +3,24 @@ package s3
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/adwski/vidi/internal/media/store"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/sha256-simd"
 	"go.uber.org/zap"
 )
 
+var ErrNotFount = errors.New("not found")
+
 // Store is media store that uses s3 compatible storage.
+// It implements simple Get/Set operations, and in addition
+// it can calculate sha256 checksum of already uploaded object.
+//
+// TODO Seems like S3 API actually can calculate sha256 on server side,
+// TODO but I couldn't get it working with minio. Need to investigate further.
 type Store struct {
 	logger *zap.Logger
 	client *minio.Client
@@ -51,7 +58,7 @@ func (s *Store) Get(ctx context.Context, name string) (io.ReadSeekCloser, int64,
 	if errS != nil {
 		er := minio.ToErrorResponse(errS)
 		if er.StatusCode == http.StatusNotFound {
-			return nil, 0, store.ErrNotFount
+			return nil, 0, ErrNotFount
 		}
 		return nil, 0, fmt.Errorf("cannot get object stats: %w", errS)
 	}

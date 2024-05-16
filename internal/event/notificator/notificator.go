@@ -19,7 +19,7 @@ const (
 )
 
 // Notificator is asynchronous Video API notification service.
-// It takes events and calls Video API in separate goroutine.
+// It takes events and calls videoapi service-side API in separate goroutine.
 //
 // TODO In the future could be replaced with actual message queue.
 type Notificator struct {
