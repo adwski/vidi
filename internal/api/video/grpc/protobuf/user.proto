@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package videoapi;
+
+option go_package="internal/api/video/grpc/userside/pb;pb";
+
+service usersideapi {
+  rpc GetQuota(GetQuotaRequest) returns (QuotaResponse);
+  rpc CreateVideo(CreateVideoRequest) returns (VideoResponse);
+  rpc GetVideo(VideoRequest) returns (VideoResponse);
+  rpc GetVideos(GetVideosRequest) returns (VideosResponse);
+  rpc DeleteVideo(DeleteRequest) returns (DeleteVideoResponse);
+  rpc WatchVideo(WatchRequest) returns (WatchVideoResponse);
+}
+
+message GetQuotaRequest {}
+
+message QuotaResponse {
+  uint64 size_quota = 1;
+  uint64 size_usage = 3;
+  uint32 videos_quota = 2;
+  uint32 videos_usage = 4;
+}
+
+message CreateVideoRequest {
+  uint64 size = 1;
+  string name = 2;
+  repeated VideoPart parts = 3;
+}
+
+message VideoPart {
+  uint32 num = 1;
+  uint64 size = 2;
+  int32 status = 3;
+  string checksum = 4;
+}
+
+message VideoRequest {
+  string id = 1;
+  bool resumeUpload = 2;
+}
+
+message VideoResponse {
+  string id = 1;
+  int32 status = 2;
+  string name = 3;
+  uint64 size = 4;
+  int64 created_at = 5;
+  string upload_url = 6;
+  repeated VideoPart upload_parts = 7;
+}
+
+message GetVideosRequest{}
+
+message VideosResponse {
+  repeated VideoResponse videos = 1;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message DeleteVideoResponse{}
+
+message WatchRequest {
+  string id = 1;
+}
+
+message WatchVideoResponse{
+  string url = 1;
+}

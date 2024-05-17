@@ -3,7 +3,7 @@ package user
 import (
 	"context"
 
-	"github.com/adwski/vidi/internal/api/server"
+	"github.com/adwski/vidi/internal/api/http/server"
 	"github.com/adwski/vidi/internal/api/user"
 	"github.com/adwski/vidi/internal/api/user/auth"
 	"github.com/adwski/vidi/internal/api/user/store"
@@ -35,19 +35,19 @@ func (a *App) configure(ctx context.Context) ([]app.Runner, []app.Closer, bool) 
 		Logger:    logger,
 		APIPrefix: v.GetURIPrefix("api.prefix"),
 		AuthConfig: auth.Config{
-			Secret:     v.GetString("auth.jwt.secret"),
-			Expiration: v.GetDuration("auth.jwt.expiration"),
-			Domain:     v.GetString("domain"),
-			HTTPS:      v.GetBool("https.enable"),
+			Secret:       v.GetString("auth.jwt.secret"),
+			Expiration:   v.GetDuration("auth.jwt.expiration"),
+			Domain:       v.GetString("domain"),
+			SecureCookie: v.GetBool("https.enable"),
 		},
 	}
 	srvCfg := &server.Config{
 		Logger:            logger,
-		ListenAddress:     v.GetString("server.address"),
-		ReadTimeout:       v.GetDuration("server.timeouts.read"),
-		ReadHeaderTimeout: v.GetDuration("server.timeouts.readHeader"),
-		WriteTimeout:      v.GetDuration("server.timeouts.write"),
-		IdleTimeout:       v.GetDuration("server.timeouts.idle"),
+		ListenAddress:     v.GetString("server.http.address"),
+		ReadTimeout:       v.GetDuration("server.http.timeouts.read"),
+		ReadHeaderTimeout: v.GetDuration("server.http.timeouts.readHeader"),
+		WriteTimeout:      v.GetDuration("server.http.timeouts.write"),
+		IdleTimeout:       v.GetDuration("server.http.timeouts.idle"),
 	}
 	if v.HasErrors() {
 		for param, errP := range v.Errors() {

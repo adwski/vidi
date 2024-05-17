@@ -3,22 +3,15 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/adwski/vidi/internal/api/user/model"
 	"github.com/adwski/vidi/internal/generators"
 	"github.com/golang-jwt/jwt/v5"
-	echojwt "github.com/labstack/echo-jwt/v4"
-	"github.com/labstack/echo/v4"
 )
 
 const (
 	minSecretLen = 8
-
-	jwtCookieName = "vidiSessID"
-
-	sessionContextKey = "vUser"
 
 	roleNameService = "service"
 )
@@ -31,14 +24,14 @@ type Auth struct {
 	domain        string
 	secret        []byte
 	expiration    time.Duration
-	https         bool
+	secureCookie  bool
 }
 
 type Config struct {
-	Secret     string
-	Domain     string
-	HTTPS      bool
-	Expiration time.Duration
+	Secret       string
+	Domain       string
+	SecureCookie bool
+	Expiration   time.Duration
 }
 
 func NewAuth(cfg *Config) (*Auth, error) {
@@ -50,7 +43,7 @@ func NewAuth(cfg *Config) (*Auth, error) {
 		secret:        []byte(cfg.Secret),
 		expiration:    cfg.Expiration,
 		domain:        cfg.Domain,
-		https:         cfg.HTTPS,
+		secureCookie:  cfg.SecureCookie,
 	}, nil
 }
 
@@ -59,14 +52,6 @@ type Claims struct {
 	Name   string `json:"name"`
 	Role   string `json:"role,omitempty"`
 	jwt.RegisteredClaims
-}
-
-func (c *Claims) IsService() bool {
-	return c.Role == roleNameService
-}
-
-func (a *Auth) expirationTime() time.Time {
-	return time.Now().Add(a.expiration)
 }
 
 func (a *Auth) NewTokenForUser(user *model.User) (string, error) {
@@ -96,6 +81,34 @@ func (a *Auth) NewTokenForService(name string) (string, error) {
 	return a.makeSignedJwt(claims)
 }
 
+func (a *Auth) parseToken(signedToken string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(signedToken, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return a.secret, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse token: %w", err)
+	}
+	if !token.Valid {
+		return nil, errors.New("token is not valid")
+	}
+	claims, ok := token.Claims.(*Claims)
+	switch {
+	case !ok:
+		return nil, errors.New("token does not have claims")
+	case claims.ExpiresAt == nil:
+		return nil, errors.New("expiration claim is missing")
+	case claims.ExpiresAt.Before(time.Now()):
+		return nil, errors.New("token expired")
+	case claims.UserID == "":
+		return nil, errors.New("user id is empty")
+	default:
+		return claims, nil
+	}
+}
+
 func (a *Auth) makeSignedJwt(claims *Claims) (string, error) {
 	token := jwt.NewWithClaims(a.signingMethod, claims)
 	signedToken, err := token.SignedString(a.secret)
@@ -105,54 +118,10 @@ func (a *Auth) makeSignedJwt(claims *Claims) (string, error) {
 	return signedToken, nil
 }
 
-func (a *Auth) MiddlewareUser() echo.MiddlewareFunc {
-	return echojwt.WithConfig(echojwt.Config{
-		ContinueOnIgnoredError: false,
-		ContextKey:             sessionContextKey,
-		SigningKey:             a.secret,
-		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "cookie:" + jwtCookieName,
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(Claims)
-		},
-	})
+func (c *Claims) IsService() bool {
+	return c.Role == roleNameService
 }
 
-func (a *Auth) MiddlewareService() echo.MiddlewareFunc {
-	return echojwt.WithConfig(echojwt.Config{
-		ContinueOnIgnoredError: false,
-		ContextKey:             sessionContextKey,
-		SigningKey:             a.secret,
-		SigningMethod:          echojwt.AlgorithmHS256,
-		TokenLookup:            "header:Authorization:Bearer ", // space is important!
-		NewClaimsFunc: func(c echo.Context) jwt.Claims {
-			return new(Claims)
-		},
-	})
-}
-
-func GetClaimFromContext(c echo.Context) (*Claims, error) {
-	token, ok := c.Get(sessionContextKey).(*jwt.Token)
-	if !ok || token == nil {
-		return nil, errors.New("cannot get jwt token from session context")
-	}
-	claims, ok := token.Claims.(*Claims)
-	if !ok || claims == nil {
-		return nil, errors.New("cannot get claims from jwt token")
-	}
-	return claims, nil
-}
-
-func (a *Auth) CookieForUser(user *model.User) (*http.Cookie, error) {
-	token, err := a.NewTokenForUser(user)
-	if err != nil {
-		return nil, err
-	}
-	return &http.Cookie{
-		Name:    jwtCookieName,
-		Value:   token,
-		Domain:  a.domain,
-		Expires: a.expirationTime(),
-		Secure:  a.https,
-	}, nil
+func (a *Auth) expirationTime() time.Time {
+	return time.Now().Add(a.expiration)
 }

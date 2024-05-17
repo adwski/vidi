@@ -19,16 +19,21 @@ const (
 
 type Status int
 
-var statusNames = map[Status]string{
-	StatusError:      "error",
-	StatusCreated:    "created",
-	StatusUploading:  "uploading",
-	StatusUploaded:   "uploaded",
-	StatusProcessing: "processing",
-	StatusReady:      "ready",
-}
+var (
+	ErrIncorrectStatusName = errors.New("incorrect status name")
+	ErrIncorrectStatusNum  = errors.New("incorrect status number")
 
-var statusFromName = make(map[string]Status)
+	statusNames = map[Status]string{
+		StatusError:      "error",
+		StatusCreated:    "created",
+		StatusUploading:  "uploading",
+		StatusUploaded:   "uploaded",
+		StatusProcessing: "processing",
+		StatusReady:      "ready",
+	}
+
+	statusFromName = make(map[string]Status)
+)
 
 func init() {
 	for k, v := range statusNames {
@@ -36,15 +41,22 @@ func init() {
 	}
 }
 
+func ValidateStatus(status Status) error {
+	if _, ok := statusNames[status]; ok {
+		return nil
+	}
+	return ErrIncorrectStatusNum
+}
+
 func GetStatusFromName(name string) (Status, error) {
 	if status, ok := statusFromName[name]; ok {
 		return status, nil
 	}
-	return 0, errors.New("incorrect status name")
+	return 0, ErrIncorrectStatusName
 }
 
-func (s *Status) String() string {
-	return statusNames[*s]
+func (s Status) String() string {
+	return statusNames[s]
 }
 
 func (s *Status) UnmarshalJSON(b []byte) (err error) {

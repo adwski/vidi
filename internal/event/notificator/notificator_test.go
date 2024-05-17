@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/adwski/vidi/internal/api/video/model"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 
@@ -48,9 +47,8 @@ func TestNotificator_processUnknown(t *testing.T) {
 		evCh:   make(chan *event.Event),
 	}
 
-	n.processEvent(&event.Event{
-		Video: model.Video{},
-		Kind:  1000,
+	n.processEvent(context.TODO(), &event.Event{
+		Kind: 1000,
 	})
 	assert.Contains(t, logBuf.String(), "unknown event kind")
 }

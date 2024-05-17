@@ -26,7 +26,7 @@ func NewStore(inPath, outPath string) *Store {
 	}
 }
 
-func (s *Store) Get(_ context.Context, name string) (io.ReadCloser, int64, error) {
+func (s *Store) Get(_ context.Context, name string) (io.ReadSeekCloser, int64, error) {
 	fullName := fmt.Sprintf("%s/%s", s.inputPathPrefix, name)
 	f, err := os.Open(fullName)
 	if err != nil {

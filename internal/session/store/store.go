@@ -23,6 +23,8 @@ const (
 	ristrettoMaxCost     = 1 << 30 // maximum cost of cache (1GB).
 	ristrettoBufferItems = 64      // number of keys per Get buffer.
 	ristrettoDefaultCost = 1
+
+	minTTL = 300 * time.Second
 )
 
 var (
@@ -57,6 +59,13 @@ type Config struct {
 }
 
 func NewStore(cfg *Config) (*Store, error) {
+	ttl := cfg.TTL
+	if ttl < minTTL {
+		ttl = minTTL
+	}
+	if len(cfg.Name) == 0 {
+		return nil, fmt.Errorf("store name is required")
+	}
 	u, err := url.Parse(cfg.RedisDSN)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse redis DSN: %w", err)
@@ -65,14 +74,11 @@ func NewStore(cfg *Config) (*Store, error) {
 	if errDB != nil {
 		return nil, fmt.Errorf("cannot parse redis DB number: %w", errDB)
 	}
-	cache, errRi := ristretto.NewCache(&ristretto.Config{
+	cache, _ := ristretto.NewCache(&ristretto.Config{ // error will not happen
 		NumCounters: ristrettoNumCounters,
 		MaxCost:     ristrettoMaxCost, // basically size of cache if cost of each elem is 1
 		BufferItems: ristrettoBufferItems,
 	})
-	if errRi != nil {
-		return nil, fmt.Errorf("cannot initialize ristretto cache: %w", errRi)
-	}
 	pass, _ := u.User.Password() // empty if not ok
 	r := redis.NewClient(&redis.Options{
 		Addr:     u.Host,
@@ -81,17 +87,19 @@ func NewStore(cfg *Config) (*Store, error) {
 		DB:       db,
 	})
 	return &Store{
-		logger: cfg.Logger.With(zap.String("component", "session-store")),
-		r:      r,
-		cache:  cache,
-		enc:    jsoniter.ConfigCompatibleWithStandardLibrary,
-		name:   []byte(cfg.Name),
-		ttl:    cfg.TTL,
+		logger: cfg.Logger.With(
+			zap.String("component", "session-store"),
+			zap.String("name", cfg.Name)),
+		r:     r,
+		cache: cache,
+		enc:   jsoniter.ConfigCompatibleWithStandardLibrary,
+		name:  []byte(cfg.Name),
+		ttl:   ttl,
 
 		// Local cache ttl is half of redis ttl.
 		// Because of this after half-time we goto redis and update expiration,
 		// since we don't want to lose session in redis.
-		cacheTTL: cfg.TTL / 2, //nolint:gomnd  // explained above, no need for constant
+		cacheTTL: ttl / 2, //nolint:mnd  // explained above, no need for constant
 	}, nil
 }
 

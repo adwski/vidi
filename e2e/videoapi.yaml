@@ -1,9 +1,17 @@
 log:
   level: debug
 server:
-  address: ":18082"
+  http:
+    address: ":18082"
+  grpc:
+    address: ":18092"
+    svc_address: ":18093"
+    tls_userside_enable: true
+  tls:
+    key: key.pem
+    cert: cert.pem
 api:
-  prefix: /api/video
+  prefix: /api
 database:
   dsn: postgres://videoapi:videoapi@localhost:5432/videoapi?sslmode=disable
 redis:

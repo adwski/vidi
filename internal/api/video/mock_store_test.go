@@ -117,6 +117,53 @@ func (_c *MockStore_Delete_Call) RunAndReturn(run func(context.Context, string, 
 	return _c
 }
 
+// DeleteUploadedParts provides a mock function with given fields: ctx, vid
+func (_m *MockStore) DeleteUploadedParts(ctx context.Context, vid string) error {
+	ret := _m.Called(ctx, vid)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteUploadedParts")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, vid)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_DeleteUploadedParts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUploadedParts'
+type MockStore_DeleteUploadedParts_Call struct {
+	*mock.Call
+}
+
+// DeleteUploadedParts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - vid string
+func (_e *MockStore_Expecter) DeleteUploadedParts(ctx interface{}, vid interface{}) *MockStore_DeleteUploadedParts_Call {
+	return &MockStore_DeleteUploadedParts_Call{Call: _e.mock.On("DeleteUploadedParts", ctx, vid)}
+}
+
+func (_c *MockStore_DeleteUploadedParts_Call) Run(run func(ctx context.Context, vid string)) *MockStore_DeleteUploadedParts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_DeleteUploadedParts_Call) Return(_a0 error) *MockStore_DeleteUploadedParts_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_DeleteUploadedParts_Call) RunAndReturn(run func(context.Context, string) error) *MockStore_DeleteUploadedParts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Get provides a mock function with given fields: ctx, id, userID
 func (_m *MockStore) Get(ctx context.Context, id string, userID string) (*model.Video, error) {
 	ret := _m.Called(ctx, id, userID)
@@ -342,17 +389,17 @@ func (_c *MockStore_Update_Call) RunAndReturn(run func(context.Context, *model.V
 	return _c
 }
 
-// UpdateLocation provides a mock function with given fields: ctx, vi
-func (_m *MockStore) UpdateLocation(ctx context.Context, vi *model.Video) error {
-	ret := _m.Called(ctx, vi)
+// UpdatePart provides a mock function with given fields: ctx, vid, part
+func (_m *MockStore) UpdatePart(ctx context.Context, vid string, part *model.Part) error {
+	ret := _m.Called(ctx, vid, part)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateLocation")
+		panic("no return value specified for UpdatePart")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *model.Video) error); ok {
-		r0 = rf(ctx, vi)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *model.Part) error); ok {
+		r0 = rf(ctx, vid, part)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -360,31 +407,32 @@ func (_m *MockStore) UpdateLocation(ctx context.Context, vi *model.Video) error 
 	return r0
 }
 
-// MockStore_UpdateLocation_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateLocation'
-type MockStore_UpdateLocation_Call struct {
+// MockStore_UpdatePart_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdatePart'
+type MockStore_UpdatePart_Call struct {
 	*mock.Call
 }
 
-// UpdateLocation is a helper method to define mock.On call
+// UpdatePart is a helper method to define mock.On call
 //   - ctx context.Context
-//   - vi *model.Video
-func (_e *MockStore_Expecter) UpdateLocation(ctx interface{}, vi interface{}) *MockStore_UpdateLocation_Call {
-	return &MockStore_UpdateLocation_Call{Call: _e.mock.On("UpdateLocation", ctx, vi)}
+//   - vid string
+//   - part *model.Part
+func (_e *MockStore_Expecter) UpdatePart(ctx interface{}, vid interface{}, part interface{}) *MockStore_UpdatePart_Call {
+	return &MockStore_UpdatePart_Call{Call: _e.mock.On("UpdatePart", ctx, vid, part)}
 }
 
-func (_c *MockStore_UpdateLocation_Call) Run(run func(ctx context.Context, vi *model.Video)) *MockStore_UpdateLocation_Call {
+func (_c *MockStore_UpdatePart_Call) Run(run func(ctx context.Context, vid string, part *model.Part)) *MockStore_UpdatePart_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*model.Video))
+		run(args[0].(context.Context), args[1].(string), args[2].(*model.Part))
 	})
 	return _c
 }
 
-func (_c *MockStore_UpdateLocation_Call) Return(_a0 error) *MockStore_UpdateLocation_Call {
+func (_c *MockStore_UpdatePart_Call) Return(_a0 error) *MockStore_UpdatePart_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockStore_UpdateLocation_Call) RunAndReturn(run func(context.Context, *model.Video) error) *MockStore_UpdateLocation_Call {
+func (_c *MockStore_UpdatePart_Call) RunAndReturn(run func(context.Context, string, *model.Part) error) *MockStore_UpdatePart_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -432,6 +480,65 @@ func (_c *MockStore_UpdateStatus_Call) Return(_a0 error) *MockStore_UpdateStatus
 }
 
 func (_c *MockStore_UpdateStatus_Call) RunAndReturn(run func(context.Context, *model.Video) error) *MockStore_UpdateStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Usage provides a mock function with given fields: ctx, userID
+func (_m *MockStore) Usage(ctx context.Context, userID string) (*model.UserUsage, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Usage")
+	}
+
+	var r0 *model.UserUsage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*model.UserUsage, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *model.UserUsage); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*model.UserUsage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_Usage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Usage'
+type MockStore_Usage_Call struct {
+	*mock.Call
+}
+
+// Usage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockStore_Expecter) Usage(ctx interface{}, userID interface{}) *MockStore_Usage_Call {
+	return &MockStore_Usage_Call{Call: _e.mock.On("Usage", ctx, userID)}
+}
+
+func (_c *MockStore_Usage_Call) Run(run func(ctx context.Context, userID string)) *MockStore_Usage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_Usage_Call) Return(_a0 *model.UserUsage, _a1 error) *MockStore_Usage_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_Usage_Call) RunAndReturn(run func(context.Context, string) (*model.UserUsage, error)) *MockStore_Usage_Call {
 	_c.Call.Return(run)
 	return _c
 }

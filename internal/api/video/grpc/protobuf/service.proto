@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package videoapi;
+
+option go_package="internal/api/video/grpc/serviceside/pb;pb";
+
+service servicesideapi {
+  rpc GetVideosByStatus(GetByStatusRequest) returns (VideoListResponse);
+  rpc UpdateVideo(UpdateVideoRequest) returns (UpdateVideoResponse);
+  rpc UpdateVideoStatus(UpdateVideoStatusRequest) returns (UpdateVideoStatusResponse);
+  rpc NotifyPartUpload(NotifyPartUploadRequest) returns (NotifyPartUploadResponse);
+}
+
+message GetByStatusRequest {
+  int32 status = 1;
+}
+
+message VideoListResponse{
+  repeated Video videos = 1;
+}
+
+message Video {
+  string id = 1;
+  int32 status = 2;
+  uint64 created_at = 3;
+  uint64 size = 4;
+  string location = 5;
+  repeated Part parts = 6;
+}
+
+message Part {
+  uint32 num = 1;
+  uint64 size = 2;
+  string checksum = 3;
+}
+
+message UpdateVideoRequest {
+  string id = 1;
+  string location = 3;
+  int32 status = 2;
+  bytes playback_meta = 4;
+}
+
+message UpdateVideoResponse {}
+
+message UpdateVideoStatusRequest {
+  string id = 1;
+  int32 status = 2;
+}
+
+message UpdateVideoStatusResponse{}
+
+message NotifyPartUploadRequest {
+  string video_id = 1;
+  uint32 num = 2;
+  string checksum = 4;
+}
+
+message NotifyPartUploadResponse {}

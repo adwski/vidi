@@ -9,3 +9,4 @@ packages:
   github.com/adwski/vidi/internal/api/video:
     interfaces:
       Store: {}
+      SessionStore: {}

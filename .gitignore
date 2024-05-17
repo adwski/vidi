@@ -23,6 +23,21 @@ report.xml
 profile.cov
 coverage.html
 
+# macos stuff
 .DS_Store
 
-output
+# test paths
+output/
+cmd/vidictl/test.go
+docker/compose/config/test.xml
+
+# certs
+docker/compose/tls/*
+!docker/compose/tls/placeholder
+
+e2e/cert.pem
+e2e/key.pem
+
+dist/
+
+tapes/frames/

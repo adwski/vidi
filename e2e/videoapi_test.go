@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 package e2e
 
@@ -26,7 +25,7 @@ func TestCreateAndDeleteVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -35,7 +34,7 @@ func TestCreateAndDeleteVideo(t *testing.T) {
 	// Create video
 	//-------------------------------------------------------------------------------
 	videoResponse := videoCreate(t, cookie)
-	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadURL)
+	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadInfo.URL)
 
 	//-------------------------------------------------------------------------------
 	// Get video
@@ -59,7 +58,7 @@ func TestCreateAndUploadVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -68,12 +67,12 @@ func TestCreateAndUploadVideo(t *testing.T) {
 	// Create video
 	//-------------------------------------------------------------------------------
 	videoResponse := videoCreate(t, cookie)
-	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadURL)
+	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadInfo.URL)
 
 	//-------------------------------------------------------------------------------
 	// Upload video
 	//-------------------------------------------------------------------------------
-	videoUpload(t, videoResponse.UploadURL)
+	videoUpload(t, videoResponse.UploadInfo.URL)
 
 	//-------------------------------------------------------------------------------
 	// Wait until processed
@@ -85,7 +84,7 @@ Loop:
 		case <-time.After(3 * time.Second):
 			videoResponse2 := videoGet(t, cookie, videoResponse.ID)
 			t.Logf("video retrieved, id: %s, status: %v", videoResponse2.ID, videoResponse2.Status)
-			status, err := videoResponse2.GetStatus()
+			status, err := video.GetStatusFromName(videoResponse2.Status)
 			require.NoError(t, err)
 			if status != video.StatusReady {
 				continue Loop
@@ -105,7 +104,7 @@ func TestWatchVideo(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -119,10 +118,13 @@ func TestWatchVideo(t *testing.T) {
 	//-------------------------------------------------------------------------------
 	// Get watch URL
 	//-------------------------------------------------------------------------------
-	watchResponse := videoWatch(t, cookie, videosResponse[0])
-	t.Logf("watch url retrieved: %s", watchResponse.WatchURL)
+	// with generated url
+	url := videoWatchURL(t, cookie, videosResponse[0])
+	watchVideo(t, url)
 
-	watchVideo(t, watchResponse.WatchURL)
+	// with direct api link
+	mpdBody := videoWatch(t, cookie, videosResponse[0])
+	watchVideoFromMPD(t, mpdBody)
 }
 
 func TestFails(t *testing.T) {
@@ -130,7 +132,7 @@ func TestFails(t *testing.T) {
 	// Login with existent user
 	//-------------------------------------------------------------------------------
 	cookie := userLogin(t, &user.UserRequest{
-		Username: "testuser",
+		Username: testUserName,
 		Password: "testpass",
 	})
 	t.Logf("user logged in, token: %v", cookie.Value)
@@ -139,7 +141,7 @@ func TestFails(t *testing.T) {
 	// Create video
 	//-------------------------------------------------------------------------------
 	videoResponse := videoCreate(t, cookie)
-	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadURL)
+	t.Logf("video created, id: %s, upload url: %v", videoResponse.ID, videoResponse.UploadInfo.URL)
 
 	//-------------------------------------------------------------------------------
 	// Get video
@@ -159,12 +161,12 @@ func TestFails(t *testing.T) {
 	//-------------------------------------------------------------------------------
 	// Upload video, invalid request
 	//-------------------------------------------------------------------------------
-	videoUploadFailGet(t, videoResponse.UploadURL)
+	videoUploadFailGet(t, videoResponse.UploadInfo.URL)
 
 	//-------------------------------------------------------------------------------
 	// Upload video, invalid requests
 	//-------------------------------------------------------------------------------
-	url := videoResponse.UploadURL[:strings.LastIndex(videoResponse.UploadURL, "/")]
+	url := videoResponse.UploadInfo.URL[:strings.LastIndex(videoResponse.UploadInfo.URL, "/")]
 	videoUploadFail(t, url)
 	videoUploadFail(t, url+"/qweqwe/")
 }

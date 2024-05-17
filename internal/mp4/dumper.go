@@ -3,7 +3,6 @@ package mp4
 import (
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
@@ -16,10 +15,7 @@ const (
 )
 
 // Dump prints out codec info and segmentation patter for mp4 file.
-func Dump(path string, segDuration time.Duration) {
-	dump(os.Stdout, path, segDuration)
-}
-func dump(w io.Writer, path string, segDuration time.Duration) {
+func Dump(w io.Writer, path string, segDuration time.Duration) {
 	segmentDuration := segDuration
 	if segDuration < defaultSegmentDuration {
 		segmentDuration = defaultSegmentDuration
@@ -30,7 +26,7 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 		return
 	}
 
-	printW(w, "ftyp: %s\n", mF.Ftyp)
+	printW(w, "ftyp: %s\n", mF.Ftyp.CompatibleBrands())
 	printW(w, "segmented: %v\n", mF.IsFragmented())
 
 	vTrack, timescale, totalDuration, errV := segmentation.GetFirstVideoTrackParams(mF)
@@ -42,8 +38,12 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 	printW(w, "duration: %v\n", time.Duration(totalDuration/uint64(timescale))*time.Second)
 	printW(w, "\nsegmentation info:\n")
 
-	segmentPoints, errSP := segmentation.MakePoints(vTrack, timescale, segmentDuration)
-	printW(w, "segment points with %v duration (err: %v): %v\n", segmentDuration, errSP, segmentPoints)
+	updatedSegDuration, segmentPoints, errSP := segmentation.MakePoints(vTrack, timescale, segmentDuration)
+	if updatedSegDuration != 0 {
+		printW(w, "segment duration was updated: %v\n", updatedSegDuration)
+	}
+	printW(w, "segment points (%d) with %v duration (err: %v): %v\n",
+		len(segmentPoints), segmentDuration, errSP, segmentPoints)
 	if errSP != nil {
 		return
 	}
@@ -76,7 +76,7 @@ func dump(w io.Writer, path string, segDuration time.Duration) {
 	if videoTrack && audioTrack {
 		printW(w, "\nCodecs are supported!\n")
 	} else {
-		printW(w, "\nSome codec is not yet supported!\n")
+		printW(w, "\nSome codecs are not yet supported!\n")
 	}
 }
 

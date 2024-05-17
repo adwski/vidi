@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	mp4ff "github.com/Eyevinn/mp4ff/mp4"
@@ -14,7 +15,7 @@ import (
 
 type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) error
 
-// Segmenter can segment progressive mp4 according to predefined segment duration.
+// Segmenter segments progressive mp4 according to predefined segment duration.
 // Resulting segments are passed to boxStoreFunc, and it is up to user to define how to store them.
 //
 // Segmentation flow:
@@ -25,6 +26,9 @@ type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) erro
 //
 // This flow uses high-level functions, implemented in segmentation package.
 //
+// Configured segment duration should be treated like 'preference'.
+// Segmenter can increase it if necessary in order to make segments with equal sizes.
+//
 // Tracks get new numbers since they will be in separate files.
 // For example, if input file has video track with ID 0 and audio with ID 1,
 // then in resulting video segments will be single track with ID 0,
@@ -34,16 +38,25 @@ type BoxStoreFunc func(context.Context, string, mp4ff.BoxStructure, uint64) erro
 type Segmenter struct {
 	logger          *zap.Logger
 	boxStoreFunc    BoxStoreFunc
+	mdatRS          io.ReadSeeker
 	segmentDuration time.Duration
 }
 
-func NewSegmenter(logger *zap.Logger, segDuration time.Duration, boxStoreFunc BoxStoreFunc) *Segmenter {
+func NewSegmenter(
+	logger *zap.Logger,
+	mdatRS io.ReadSeeker,
+	segDuration time.Duration,
+	boxStoreFunc BoxStoreFunc,
+) *Segmenter {
 	return &Segmenter{
 		logger:          logger,
+		mdatRS:          mdatRS,
 		boxStoreFunc:    boxStoreFunc,
 		segmentDuration: segDuration,
 	}
 }
+
+func (s *Segmenter) GetSegmentDuration() time.Duration { return s.segmentDuration }
 
 func (s *Segmenter) SegmentMP4(
 	ctx context.Context,
@@ -58,7 +71,11 @@ func (s *Segmenter) SegmentMP4(
 		zap.Uint32("timescale", timescale),
 		zap.Uint64("totalDuration", totalDuration))
 
-	segPoints, errS := segmentation.MakePoints(track, timescale, s.segmentDuration)
+	updSegDuration, segPoints, errS := segmentation.MakePoints(track, timescale, s.segmentDuration)
+	if updSegDuration > 0 {
+		s.logger.Debug("updating segment duration", zap.Duration("new", updSegDuration))
+		s.segmentDuration = updSegDuration
+	}
 	if errS != nil {
 		return nil, 0, 0, fmt.Errorf("cannot make segmentation points: %w", err)
 	}
@@ -134,7 +151,7 @@ func (s *Segmenter) makeAndWriteSegments(
 		segNum := i + 1
 		segTrackID := segTracks[track.Tkhd.TrackID].Tkhd.TrackID
 		// Get segments data for segment
-		samplesData, err := segmentation.GetSamplesData(mdat, track.Mdia.Minf.Stbl, segInterval)
+		samplesData, err := segmentation.GetSamplesData(mdat, track.Mdia.Minf.Stbl, segInterval, s.mdatRS)
 		if err != nil {
 			return fmt.Errorf("cannot get samples data: %w", err)
 		}

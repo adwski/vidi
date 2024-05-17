@@ -1,8 +1,10 @@
+// Package logging provides various zap logger initialization functions.
 package logging
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"go.uber.org/zap"
@@ -35,8 +37,32 @@ func GetZapLoggerDefaultLevel() *zap.Logger {
 	return zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(getEncoderConfig()), os.Stdout, defaultLogLevel))
 }
 
-func GetZapLoggerConsole() *zap.Logger {
-	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(getEncoderConfig()), os.Stdout, defaultLogLevel))
+type fakeWSyncer struct {
+	io.Writer
+}
+
+func (fw *fakeWSyncer) Sync() error {
+	return nil
+}
+
+func GetZapLoggerWriter(w io.Writer) *zap.Logger {
+	return zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(getEncoderConfig()),
+		&fakeWSyncer{Writer: w}, defaultLogLevel))
+}
+
+func GetZapLoggerFile(path string) (*zap.Logger, error) {
+	return zap.Config{ //nolint:wrapcheck // wrap is redundant here
+		Level:       zap.NewAtomicLevelAt(defaultLogLevel),
+		Development: false,
+		Sampling: &zap.SamplingConfig{
+			Initial:    100, //nolint:mnd // After the first 100 log entries with the same level and
+			Thereafter: 100, //nolint:mnd // message in the same second zap will log every 100th entry. (quote)
+		},
+		Encoding:         "json",
+		EncoderConfig:    getEncoderConfig(),
+		OutputPaths:      []string{path},
+		ErrorOutputPaths: []string{path},
+	}.Build()
 }
 
 func getEncoderConfig() zapcore.EncoderConfig {

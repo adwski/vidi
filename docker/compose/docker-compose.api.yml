@@ -1,6 +1,4 @@
 ---
-version: "3.8"
-
 x-logging: &logging
   driver: "json-file"
   options:
@@ -18,7 +16,7 @@ services:
     environment:
       VIDI_API_PREFIX: /api/users
       VIDI_DATABASE_DSN: postgres://userapi:userapi@postgres:5432/userapi?sslmode=disable
-      VIDI_SERVER_ADDRESS: ":8080"
+      VIDI_SERVER_HTTP_ADDRESS: ":8080"
     expose:
       - 8080
     networks:
@@ -34,14 +32,18 @@ services:
       dockerfile: docker/videoapi.Dockerfile
       target: dev
     environment:
-      VIDI_API_PREFIX: /api/video
+      VIDI_API_PREFIX: /api
       VIDI_DATABASE_DSN: postgres://videoapi:videoapi@postgres:5432/videoapi?sslmode=disable
       VIDI_REDIS_DSN: redis://redis:6379/0
-      VIDI_MEDIA_URL_WATCH: http://localhost:8080/watch
-      VIDI_MEDIA_URL_UPLOAD: http://localhost:8080/upload
-      VIDI_SERVER_ADDRESS: ":8080"
+      VIDI_MEDIA_URL_WATCH: http://localhost:80/watch
+      VIDI_MEDIA_URL_UPLOAD: http://localhost:80/upload
+      VIDI_SERVER_HTTP_ADDRESS: ":8080"
+      VIDI_SERVER_GRPC_ADDRESS: ":8181"
+      VIDI_SERVER_GRPC_SVC_ADDRESS: ":8282"
     expose:
       - 8080
+    ports:
+      - "8282:8282"
     networks:
       - vidi
     depends_on:

@@ -14,10 +14,10 @@ import (
 const (
 	defaultShutdownTimeout = 15 * time.Second
 
-	defaultMaxBodySize = 500 * 1024 * 1024
+	defaultMaxBodySize = 1 * 1024 * 1024
 )
 
-// Server is a runnable fasthttp server designed to be used with media services.
+// Server is a runnable fasthttp server intended to be used with media apps.
 type Server struct {
 	logger *zap.Logger
 	srv    *fasthttp.Server
@@ -31,23 +31,29 @@ type Config struct {
 	ReadTimeout   time.Duration
 	WriteTimeout  time.Duration
 	IdleTimeout   time.Duration
+	MaxBodySize   uint
 }
 
 func New(cfg *Config) *Server {
+	if cfg.MaxBodySize < defaultMaxBodySize {
+		cfg.MaxBodySize = defaultMaxBodySize
+	}
 	return &Server{
 		logger: cfg.Logger.With(zap.String("component", "server")),
 		addr:   cfg.ListenAddress,
 		srv: &fasthttp.Server{
-			// TODO add ContinueHandler to validate request based on header
-			//   before reading body
-			Handler: cfg.Handler,
-
-			ReadTimeout:  cfg.ReadTimeout,
-			WriteTimeout: cfg.WriteTimeout,
-			IdleTimeout:  cfg.IdleTimeout,
-			// TODO This is needed only for uploader, move to config
-			MaxRequestBodySize: defaultMaxBodySize,
+			Handler:            cfg.Handler,
+			ReadTimeout:        cfg.ReadTimeout,
+			WriteTimeout:       cfg.WriteTimeout,
+			IdleTimeout:        cfg.IdleTimeout,
+			MaxRequestBodySize: int(cfg.MaxBodySize),
 			CloseOnShutdown:    true,
+			//StreamRequestBody:  true,
+
+			// Prevent handling of potentially large requests
+			// by forbidding all 100s, since we're not using them now.
+			// If client sends 100-Continue, server will respond with 417
+			ContinueHandler: func(_ *fasthttp.RequestHeader) bool { return false },
 		}}
 }
 
@@ -63,7 +69,9 @@ func (s *Server) Run(ctx context.Context, wg *sync.WaitGroup, errc chan<- error)
 		errSrv <- s.srv.ListenAndServe(s.addr)
 	}()
 
-	s.logger.Info("server started", zap.String("address", s.addr))
+	s.logger.Info("server started",
+		zap.String("address", s.addr),
+		zap.Int("maxBodySize", s.srv.MaxRequestBodySize))
 
 	select {
 	case <-ctx.Done():

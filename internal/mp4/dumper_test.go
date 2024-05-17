@@ -12,7 +12,7 @@ import (
 func TestDump(t *testing.T) {
 	buf := bytes.NewBuffer(make([]byte, 0, 10000))
 
-	dump(buf, "../../testfiles/test_seq_h264_high.mp4", time.Second)
+	Dump(buf, "../../testfiles/test_seq_h264_high.mp4", time.Second)
 
 	require.NotZero(t, buf.Len())
 	str := buf.String()

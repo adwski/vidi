@@ -46,10 +46,11 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 	}
 	srvCfg := &server.Config{
 		Logger:        logger,
-		ListenAddress: v.GetString("server.address"),
-		ReadTimeout:   v.GetDuration("server.timeouts.read"),
-		WriteTimeout:  v.GetDuration("server.timeouts.write"),
-		IdleTimeout:   v.GetDuration("server.timeouts.idle"),
+		ListenAddress: v.GetString("server.http.address"),
+		ReadTimeout:   v.GetDuration("server.http.timeouts.read"),
+		WriteTimeout:  v.GetDuration("server.http.timeouts.write"),
+		IdleTimeout:   v.GetDuration("server.http.timeouts.idle"),
+		MaxBodySize:   v.GetUint("server.http.max_body_size"),
 	}
 	sessionStoreCfg := &sessionStore.Config{
 		Logger:   logger,
@@ -69,7 +70,13 @@ func (a *App) configure(_ context.Context) ([]app.Runner, []app.Closer, bool) {
 		return nil, nil, false
 	}
 	uploaderCfg.SessionStorage = sessStore
-	uploaderCfg.Notificator = notificator.New(notificatorCfg)
+
+	var err error
+	uploaderCfg.Notificator, err = notificator.New(notificatorCfg)
+	if err != nil {
+		logger.Error("cannot create notificator", zap.Error(err))
+		return nil, nil, false
+	}
 	uploaderSvc, errUp := uploader.New(&uploaderCfg)
 	if errUp != nil {
 		logger.Error("cannot create uploader service", zap.Error(errUp))

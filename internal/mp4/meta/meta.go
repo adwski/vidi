@@ -1,6 +1,18 @@
+// Package meta contains playback metadata definition
+// and static MPD generator.
 package meta
 
-import "time"
+import (
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	jsoniter "github.com/json-iterator/go"
+)
+
+var (
+	jEnc = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 // Meta is a generic media file structure.
 type Meta struct {
@@ -23,4 +35,16 @@ type SegmentConfig struct {
 	StartNumber uint
 	Duration    uint64
 	Timescale   uint32
+}
+
+func (mt *Meta) TextValue() (pgtype.Text, error) {
+	b, err := jEnc.Marshal(mt)
+	if err != nil {
+		return pgtype.Text{}, fmt.Errorf("failed to encode meta: %w", err)
+	}
+	return pgtype.Text{String: string(b), Valid: true}, nil
+}
+
+func (mt *Meta) ScanText(t pgtype.Text) error {
+	return jEnc.Unmarshal([]byte(t.String), mt) //nolint:wrapcheck // unmarshal err wrap is unnecessary
 }

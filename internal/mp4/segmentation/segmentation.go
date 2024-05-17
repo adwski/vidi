@@ -1,20 +1,23 @@
 // Package segmentation contains high level functions for progressive mp4 file segmentation
 // The code is mostly based on https://github.com/Eyevinn/mp4ff/tree/master/examples/segmenter
+//
+//nolint:wrapcheck // avoid err chain cluttering, media reader will provide comprehensive error msg
 package segmentation
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/Eyevinn/mp4ff/mp4"
 )
 
 const (
-	millisecondsInSecond = 1000
+	msecsInSec = 1000
 )
 
-// Point represents sample point in media track
-// that will be used for segmentation.
+// Point represents sync sample in media track
+// that will be used as segmentation point.
 type Point struct {
 	sampleNum        uint32
 	decodeTime       uint64
@@ -38,11 +41,12 @@ func GetFirstVideoTrackParams(m *mp4.File) (track *mp4.TrakBox, timescale uint32
 }
 
 // MakePoints creates segmentation points to split progressive mp4 file
-// according to specified segment duration. It uses first video track
-// as reference track for time calculations.
-func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) ([]Point, error) {
+// according to specified segment duration. It should be provided with
+// first video track as reference track for time calculations.
+func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Duration) (time.Duration, []Point, error) {
 	var (
-		segmentStep = uint32(uint64(segmentDuration.Milliseconds()) * uint64(timescale) / millisecondsInSecond)
+		updSegDuration time.Duration = 0
+		segmentStep                  = uint64(segmentDuration.Milliseconds()) * uint64(timescale) / msecsInSec
 
 		// https://youtu.be/CLvR9FVYwWs?t=840 (timing organisation)
 		// https://youtu.be/CLvR9FVYwWs?t=922 (timelines)
@@ -51,37 +55,59 @@ func MakePoints(track *mp4.TrakBox, timescale uint32, segmentDuration time.Durat
 		ctts = track.Mdia.Minf.Stbl.Ctts // Time-to-sample box (composition)
 		stss = track.Mdia.Minf.Stbl.Stss // Sync sample table
 
-		nextSegmentStart uint32 // Next segment time mark
+		nextSegmentStart uint64 // Next segment time mark
 
 		// Allocate segmentation points array
+		// Note: This is actually binds us with how we can choose segment duration,
+		// since segment point can only be placed at sync sample.
 		segmentationPoints = make([]Point, 0, stss.EntryCount())
 	)
 
+	// Sync samples may not have same time offset relative to each other,
+	// and some might even be further away from each other than desired segment duration.
+	// It this case we have to use larger segment duration.
+	var maxDiff uint64
+	for i := uint32(1); i < stss.EntryCount(); i++ {
+		sync1, _ := stts.GetDecodeTime(stss.SampleNumber[i-1])
+		sync2, _ := stts.GetDecodeTime(stss.SampleNumber[i])
+		if sync2-sync1 > maxDiff {
+			maxDiff = sync2 - sync1
+		}
+	}
+	if maxDiff > segmentStep {
+		// configured segment step is no good and should be increased,
+		// otherwise we're not able to create segments with same duration,
+		// which is crucial for dash.
+		segmentStep = maxDiff // TODO may be round it up?
+		updSegDuration = time.Duration(segmentStep*msecsInSec/uint64(timescale)) * time.Millisecond
+	}
+
+	// Once we have valid segment duration, we can make sync points.
 	for _, sampleNumber := range stss.SampleNumber {
 		// Get decode time of the sample
 		decodeTime, _ := stts.GetDecodeTime(sampleNumber)
 
 		// Determine presentation time
-		presentationTime := int64(decodeTime)
+		presentationTime := decodeTime
 		if ctts != nil {
 			// Correct by composition offset
-			presentationTime += int64(ctts.GetCompositionTimeOffset(sampleNumber))
+			presentationTime += uint64(ctts.GetCompositionTimeOffset(sampleNumber))
 		}
 
-		if presentationTime >= int64(nextSegmentStart) {
+		if presentationTime >= nextSegmentStart {
 			// Time mark for next segmentation point is reached
 			// Create it
 			segmentationPoints = append(segmentationPoints,
 				Point{
 					sampleNum:        sampleNumber,
 					decodeTime:       decodeTime,
-					presentationTime: uint64(presentationTime),
+					presentationTime: presentationTime,
 				})
 			// Update time mark
 			nextSegmentStart += segmentStep
 		}
 	}
-	return segmentationPoints, nil
+	return updSegDuration, segmentationPoints, nil
 }
 
 // Interval represents segment by its start and end samples (inclusive).
@@ -126,7 +152,12 @@ func MakeIntervals(timescale uint32, points []Point, track *mp4.TrakBox) ([]Inte
 }
 
 // GetSamplesData retrieves media data for specified sample interval.
-func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval) ([]mp4.FullSample, error) {
+func GetSamplesData(
+	mdat *mp4.MdatBox,
+	stbl *mp4.StblBox,
+	interval Interval,
+	rs io.ReadSeeker,
+) ([]mp4.FullSample, error) {
 	if stbl.Stco == nil {
 		return nil, fmt.Errorf("stco box is not present, co64 present: %v", stbl.Co64 != nil)
 	}
@@ -152,8 +183,24 @@ func GetSamplesData(mdat *mp4.MdatBox, stbl *mp4.StblBox, interval Interval) ([]
 		if stbl.Ctts != nil {
 			cto = stbl.Ctts.GetCompositionTimeOffset(sampleNum)
 		}
-		offsetInMdatData := uint64(offset) - payloadStart
-		sampleData := mdat.Data[offsetInMdatData : offsetInMdatData+uint64(size)]
+		var sampleData []byte
+		if mdat.GetLazyDataSize() > 0 {
+			if rs == nil {
+				return nil, fmt.Errorf("mdat decoded in lazy mode, but mdat reader is nil")
+			}
+			_, err = rs.Seek(offset, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+			sampleData = make([]byte, size)
+			_, err = io.ReadFull(rs, sampleData)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			offsetInMdatData := uint64(offset) - payloadStart
+			sampleData = mdat.Data[offsetInMdatData : offsetInMdatData+uint64(size)]
+		}
 		samples = append(samples, mp4.FullSample{
 			Sample: mp4.Sample{
 				Flags:                 translateSampleFlagsForFragment(stbl, sampleNum),

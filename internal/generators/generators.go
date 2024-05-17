@@ -1,3 +1,5 @@
+// Package generators provides simple unique string generator
+// that is internally based on uuid v4.
 package generators
 
 import (
