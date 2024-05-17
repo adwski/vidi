@@ -39,3 +39,5 @@ e2e/cert.pem
 e2e/key.pem
 
 dist/
+
+tapes/frames/

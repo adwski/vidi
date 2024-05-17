@@ -9,36 +9,35 @@ mock:
 docker-dev:
 	cd docker/compose ;\
 	docker compose up -d
-	docker ps
 
 .PHONY: docker-infra
 docker-infra:
 	cd docker/compose ;\
 	docker compose -f docker-compose.infra.yml -f docker-compose.nginx.yml up -d
-	docker ps
 
 .PHONY: docker-infra-clean
 docker-infra-clean:
 	cd docker/compose ;\
 	docker compose -f docker-compose.infra.yml -f docker-compose.nginx.yml down -v
-	docker ps
 
 .PHONY: docker-dev-build
 docker-dev-build:
 	cd docker/compose ;\
 	docker compose up -d --build
-	docker ps
 
 .PHONY: docker-dev-build-svc
 docker-dev-build-svc:
 	cd docker/compose ;\
 	docker compose up -d --no-deps --build $$SVC
-	docker ps
 
 .PHONY: docker-dev-clean
 docker-dev-clean:
 	cd docker/compose ;\
 	docker compose down -v
+
+.PHONY: docker-ps
+docker-ps:
+	docker ps --format="table {{.Image}}\t{{.Status}}\t{{.Names}}"
 
 .PHONY: goimports
 goimports:
