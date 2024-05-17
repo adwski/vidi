@@ -53,6 +53,7 @@ import (
 	"github.com/enescakir/emoji"
 	"github.com/go-resty/resty/v2"
 	"github.com/mattn/go-isatty"
+	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 )
 
@@ -128,6 +129,12 @@ func New() (*Tool, error) {
 // Logger is instantiated with file output with hardcoded debug level.
 // It could also run early initialization if specified (mainly used by tests).
 func NewWithConfig(cfg Config) (*Tool, error) {
+	fs := pflag.NewFlagSet("main", pflag.ContinueOnError)
+	defFPDir := fs.StringP("default-file-picker-dir", "d", "", "default upload file picker dir")
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		return nil, fmt.Errorf("cannot parse command line arguments: %w", err)
+	}
+
 	dir, err := initStateDir(cfg.EnforceHomeDir)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create state dir: %w", err)
@@ -143,19 +150,35 @@ func NewWithConfig(cfg Config) (*Tool, error) {
 		httpC:  resty.New(),
 		fb:     make(chan tea.Msg),
 	}
-	if cfg.FilePickerDir != "" {
-		t.filePickerDir = cfg.FilePickerDir
-	} else {
-		hDir, hErr := os.UserHomeDir()
-		if hErr != nil {
-			return nil, fmt.Errorf("unable to determine user home directory: %w", hErr)
-		}
-		t.filePickerDir = hDir
+	if t.filePickerDir, err = getFilePickerDefaultDir(*defFPDir, cfg.EnforceHomeDir); err != nil {
+		return nil, err
 	}
+
 	if cfg.EarlyInit {
 		t.initialize()
 	}
 	return t, nil
+}
+
+func getFilePickerDefaultDir(dirFromArgs, dirFromConfig string) (string, error) {
+	if dirFromArgs != "" {
+		if info, err := os.Stat(dirFromArgs); err == nil && info.IsDir() {
+			// valid dir
+			return dirFromArgs, nil
+		}
+		// not valid dir, move silently to other options
+	}
+
+	if dirFromConfig != "" {
+		// caller should take care of validity of this
+		return dirFromConfig, nil
+	}
+
+	dir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("unable to determine user home directory: %w", err)
+	}
+	return dir, nil
 }
 
 // Run starts tool. It returns only on interrupt.
